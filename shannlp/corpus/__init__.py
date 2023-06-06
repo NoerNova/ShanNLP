@@ -7,6 +7,7 @@ __all__ = [
     "shan_words",
     "shan_character",
     "shan_all_corpus",
+    "shan_syllables"
 ]
 
 import os
@@ -27,6 +28,8 @@ _PERSON_FEMALE_NAMES_FILENAME = "person_names_female_shn.txt"
 _PERSON_MALE_NAMES = set()
 _PERSON_MALE_NAMES_FILENAME = "person_names_male_shn.txt"
 
+_SHAN_SYLLABLES = set()
+_SHAN_SYLLABLES_FILENAME = "shan_syllables.txt"
 _SHAN_WORDS = set()
 _SHAN_WORDS_FILENAME = "words_shn.txt"
 _SHAN_STOPWORDS = set()
@@ -96,6 +99,14 @@ def provinces(details: bool = False) -> Union[FrozenSet[str], List[str]]:
     return _SHAN_PROVINCES
 
 
+def shan_syllables() -> FrozenSet[str]:
+    global _SHAN_SYLLABLES
+    if not _SHAN_SYLLABLES:
+        _SHAN_SYLLABLES = get_corpus(_SHAN_SYLLABLES_FILENAME)
+
+    return _SHAN_SYLLABLES
+
+
 def shan_words() -> FrozenSet[str]:
     global _SHAN_WORDS
     if not _SHAN_WORDS:
@@ -148,6 +159,7 @@ def shan_all_corpus() -> FrozenSet[str]:
                 _PERSON_FEMALE_NAMES_FILENAME,
                 _PERSON_MALE_NAMES_FILENAME,
                 _SHAN_CHARACTER_FILENAME,
+                _SHAN_SYLLABLES_FILENAME
             ]
         )
 
