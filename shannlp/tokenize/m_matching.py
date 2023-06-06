@@ -13,6 +13,10 @@ _NON_SHAN = re.compile(
     """
 )
 
+_SHAN_UNICODE_RANGE = re.compile(
+    r'[\u1000-\u109F]'
+)
+
 DEFAULT_WORD_DICT_TRIE = Trie(shan_all_corpus())
 
 
@@ -28,7 +32,7 @@ def maximal_matching(text: str) -> List[List[Optional[str]]]:
         for j in range(i, n):
             min_val = 1
             substring = text[i: j + 1]
-            if substring in dictionary or substring.isspace() or substring.isdigit():
+            if substring in dictionary or not re.search(_SHAN_UNICODE_RANGE, substring):
                 if i > 0:
                     prev_col = [
                         text_parts[k][j - 1]
