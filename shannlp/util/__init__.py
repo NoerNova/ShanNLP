@@ -6,6 +6,8 @@ __all__ = [
     "text_to_arabic_digit",
     "text_to_shan_digit",
     "shan_digit_to_arabic_digit",
+    "eng_to_shn",
+    "shn_to_eng",
     "num_to_shanword",
 ]
 
@@ -18,5 +20,7 @@ from shannlp.util.digitconv import (
     text_to_shan_digit,
     shan_digit_to_arabic_digit,
 )
+
+from shannlp.util.keyboard import eng_to_shn, shn_to_eng
 
 from shannlp.util.numtoword import num_to_shanword
