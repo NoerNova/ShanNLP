@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+
+__all__ = ["convert_years", "shanword_to_date"]
+
 from datetime import datetime, timedelta
 from typing import Union
 
@@ -17,7 +20,7 @@ shan_full_weekdays = [
     "ဝၼ်းၽတ်း",
     "ဝၼ်းသုၵ်း",
     "ဝၼ်းသဝ်",
-    "ဝၼ်းဢႃးတိတ်ႉ"
+    "ဝၼ်းဢႃးတိတ်ႉ",
 ]
 shan_full_months = [
     "လိူၼ်ၸဵင်",
@@ -31,15 +34,17 @@ shan_full_months = [
     "လိူၼ်ၵဝ်ႈ",
     "လိူၼ်သိပ်",
     "လိူၼ်သိပ်းဢဵတ်း",
-    "လိူၼ်သိပ်းသွင်"
+    "လိူၼ်သိပ်းသွင်",
 ]
 
 year_all_regex = r"(\d\d\d\d|\d\d)"
-dates_list = "(" + '|'.join(
-    [str(i) for i in range(32, 0, -1)] + [
-        "0" + str(i) for i in range(1, 10)
-    ]
-) + ")"
+dates_list = (
+    "("
+    + "|".join(
+        [str(i) for i in range(32, 0, -1)] + ["0" + str(i) for i in range(1, 10)]
+    )
+    + ")"
+)
 
 _DAY = {
     "မိူဝ်ႈၼႆႉ": 0,
@@ -107,16 +112,12 @@ def convert_years(year: str, src="sh", target="ad") -> str:
             output_year = str(int(year) + 732)
 
     if output_year is None:
-        raise NotImplementedError(
-            f"This functino doesn't support {src} to {target}"
-        )
+        raise NotImplementedError(f"This functino doesn't support {src} to {target}")
 
     return output_year
 
 
-def shanword_to_date(
-        text: str, date: datetime = None
-) -> Union[datetime, None]:
+def shanword_to_date(text: str, date: datetime = None) -> Union[datetime, None]:
     if text not in _DAY:
         return None
 
