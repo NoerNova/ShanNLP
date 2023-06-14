@@ -80,6 +80,14 @@ print(digit_to_text("မႂ်ႇသုင်ပီမႂ်ႇတႆး ႒႑�
 # မႂ်ႇသုင်ပီမႂ်ႇတႆး သွင်ၼိုင်ႈၼိုင်ႈၸဵတ်း ၼီႈ
 ```
 
+#### num_to_word
+```python
+from shannlp.util import num_to_shanword
+
+print(num_to_shanword(2117))
+# output သွင်ႁဵင်ၼိုင်ႈပၢၵ်ႇသိပ်းၸဵတ်း
+```
+
 ### Date converter
 ```python
 from shannlp.util import shanword_to_date
