@@ -64,7 +64,7 @@ _DAY = {
 }
 
 
-def convert_years(year: str, src="sh", target="ad") -> str:
+def convert_years(year: str, src="mo", target="ad") -> str:
     """
     Convert years
 
