@@ -1,13 +1,9 @@
 import re
 from typing import List, Iterable, Union
-
 from shannlp.tokenize import DEFAULT_WORD_TOKENIZE_ENGINE, DEFAULT_WORD_DICT_TRIE
-
-# from pythainlp.tokenize._utils import (apply_postprocessors, strip_whitespace)
 
 # customize from pythainlp
 from shannlp.tokenize._utils import (apply_postprocessors, strip_whitespace, rejoin_formatted_num)
-
 from pythainlp.util.trie import Trie, dict_trie
 
 
@@ -24,11 +20,11 @@ def word_tokenize(
     if engine == "mm":
         from shannlp.tokenize.m_matching import segment
 
-        segments = segment(text)
+        segments = segment(text, custom_dict)
     elif engine == "newmm":
-        from shannlp.tokenize.pythainlp import word_tokenize
+        from pythainlp.tokenize.newmm import segment
 
-        segments = word_tokenize(text)
+        segments = segment(text, custom_dict)
     elif engine == "whitespace":
         segments = re.split(r" +", text, re.U)
     elif engine == "whitespce+newline":

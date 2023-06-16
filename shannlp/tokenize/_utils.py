@@ -1,3 +1,6 @@
+# original from pythainlp
+# custom use for shannlp
+
 import re
 from typing import List, Callable
 

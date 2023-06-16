@@ -20,19 +20,15 @@ _SHAN_UNICODE_RANGE = re.compile(
 DEFAULT_WORD_DICT_TRIE = Trie(shan_all_corpus())
 
 
-def maximal_matching(text: str) -> List[List[Optional[str]]]:
-    if not text or not isinstance(text, str):
-        return []
-
+def maximal_matching(text: str, custom_dict: Trie) -> List[List[Optional[str]]]:
     n = len(text)
     text_parts: List[List[Optional[float]]] = [[None] * len(text) for _ in range(len(text))]
-    dictionary = DEFAULT_WORD_DICT_TRIE
 
     for i in range(n):
         for j in range(i, n):
             min_val = 1
             substring = text[i: j + 1]
-            if substring in dictionary or not re.search(_SHAN_UNICODE_RANGE, substring):
+            if substring in custom_dict or not re.search(_SHAN_UNICODE_RANGE, substring):
                 if i > 0:
                     prev_col = [
                         text_parts[k][j - 1]
@@ -95,8 +91,17 @@ def backtrack(d):
     return word_pos
 
 
-def segment(text: str) -> List[str]:
-    tokens = maximal_matching(text)
+def segment(
+        text: str,
+        custom_dict: Trie = DEFAULT_WORD_DICT_TRIE
+) -> List[str]:
+    if not text or not isinstance(text, str):
+        return []
+
+    if not custom_dict:
+        custom_dict = DEFAULT_WORD_DICT_TRIE
+
+    tokens = maximal_matching(text, custom_dict)
     tokenized_text = []
 
     for pos in backtrack(tokens):
