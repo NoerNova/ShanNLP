@@ -13,6 +13,7 @@ from typing import Union
 # BE: ပီပုတ်ႉထ 2566
 # AD: ပီဢိင်းၵရဵတ်ႈ 2023
 
+shan_abbr_weekdays = ["တိ", "ၸ", "ၵ", "ပု", "ၽ", "သု", "သ"]
 shan_full_weekdays = [
     "ဝၼ်းၸၼ်",
     "ဝၼ်းဢင်းၵၢၼ်း",
@@ -22,6 +23,7 @@ shan_full_weekdays = [
     "ဝၼ်းသဝ်",
     "ဝၼ်းဢႃးတိတ်ႉ",
 ]
+
 shan_full_months = [
     "လိူၼ်ၸဵင်",
     "လိူၼ်ၵမ်",
@@ -37,6 +39,24 @@ shan_full_months = [
     "လိူၼ်သိပ်းသွင်",
 ]
 
+shan_full_month_lists = [
+    ["လိူၼ်ၸဵင်", "01", "1"],
+    ["လိူၼ်သွင်", "02", "2"],
+    ["လိူၼ်သၢမ်", "03", "3"],
+    ["လိူၼ်သီႇ", "04", "4"],
+    ["လိူၼ်ႁႃႈ", "05", "5"],
+    ["လိူၼ်ႁူၵ်း", "06", "6"],
+    ["လိူၼ်ၸဵတ်း", "07", "7"],
+    ["လိူၼ်ပႅတ်ႇ", "08", "8"],
+    ["လိူၼ်ၵဝ်ႈ", "09", "9"],
+    ["လိူၼ်သိပ်း", "10"],
+    ["လိူၼ်သိပ်းဢဵတ်း", "11"],
+    ["လိူၼ်သိပ်းသွင်", "12"]
+]
+
+shan_full_month_lists_regex = "(" + '|'.join(
+    [str('|'.join([j for j in i])) for i in shan_full_month_lists]
+) + ")"
 year_all_regex = r"(\d\d\d\d|\d\d)"
 dates_list = (
     "("
@@ -115,6 +135,13 @@ def convert_years(year: str, src="mo", target="ad") -> str:
         raise NotImplementedError(f"This functino doesn't support {src} to {target}")
 
     return output_year
+
+
+def _find_month(text: str) -> int:
+    for i, m in enumerate(shan_full_month_lists):
+        for j in m:
+            if j in text:
+                return i + 1
 
 
 def shanword_to_date(text: str, date: datetime = None) -> Union[datetime, None]:
