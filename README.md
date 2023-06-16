@@ -88,6 +88,22 @@ print(num_to_shanword(2117))
 # output သွင်ႁဵင်ၼိုင်ႈပၢၵ်ႇသိပ်းၸဵတ်း
 ```
 
+#### shanword_to_num
+```python
+from shannlp.util import shanword_to_num
+
+print(shanword_to_num("ထွၼ်ႁဵင်ၵဝ်ႈပၢၵ်ႇၵဝ်ႈသိပ်းဢဵတ်း"))
+# output -1991
+```
+
+#### text_to_num
+```python
+from shannlp.util import text_to_num
+
+print(text_to_num("သွင်ႁဵင်ၼိုင်ႈပၢၵ်ႇသိပ်းၸဵတ်းပီပူၼ်ႉမႃး"))
+# output ['2117', 'ပီ', 'ပူၼ်ႉ', 'မႃး']
+```
+
 ### Date converter
 ```python
 from shannlp.util import shanword_to_date
