@@ -107,6 +107,17 @@ print(text_to_num("သွင်ႁဵင်ၼိုင်ႈပၢၵ်ႇသ�
 ```
 
 ### Date converter
+#### ***need more reference for years converter***
+```md
+current reference
+# https://shn.wikipedia.org/wiki/ဝၼ်းၸဵတ်းဝၼ်း_ၽၢႆႇတႆး
+
+# MO: ပီတႆး 2117
+# GA: ပီၵေႃးၸႃႇ 1385
+# BE: ပီပုတ်ႉထ 2566
+# AD: ပီဢိင်းၵရဵတ်ႈ 2023
+````
+
 ```python
 from shannlp.util import shanword_to_date
 import datetime
