@@ -11,7 +11,8 @@ __all__ = [
     "num_to_shanword",
     "shanword_to_num",
     "text_to_num",
-    "words_to_num"
+    "words_to_num",
+    "countshan"
 ]
 
 from shannlp.util.date import shanword_to_date, convert_years
@@ -27,3 +28,4 @@ from shannlp.util.digitconv import (
 from shannlp.util.keyboard import eng_to_shn, shn_to_eng
 from shannlp.util.numtoword import num_to_shanword
 from shannlp.util.wordtonum import shanword_to_num, text_to_num, words_to_num
+from shannlp.util.shan import countshan
