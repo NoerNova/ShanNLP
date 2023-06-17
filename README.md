@@ -57,19 +57,24 @@ print(word_tokenize(input_text))
 
 #### pythainlp newmm
 ```python
-from shannlp.tokenize import Tokenizer
-from shannlp.corpus import shan_all_corpus
+from shannlp import word_tokenize
+import time
 
-# newmm algorithmn from pythainlp
-_word = Tokenizer(engine="newmm", custom_dict=shan_all_corpus(), keep_whitespace=False)
+# start measure execute time
+start = time.time()
 
+# Example usage
 input_text = "တိူၵ်ႈသွၼ်လိၵ်ႈသင်ၶၸဝ်ႈ တီႈဝဵင်းမိူင်းၶၢၵ်ႇ တႄႇပိုတ်ႇသွၼ်ႁဵၼ်းလိၵ်ႈ ပဵၼ်ပွၵ်ႈၵမ်းႁႅၵ်း မီးသင်ၶၸဝ်ႈ မႃးႁဵၼ်း 56 တူၼ်။"
 
-print(_word.word_tokenize(input_text))
+print(word_tokenize(input_text, engine="newmm", keep_whitespace=False))
+
+# end measure execute time
+end = time.time()
+print(end - start)
 
 # output
-['တိူၵ်ႈ', 'သွၼ်လိၵ်ႈ', 'သင်ၶ', 'ၸဝ်ႈ', 'တီႈ', 'ဝဵင်း', 'မိူင်းၶၢၵ်ႇ', 'တႄႇ', 'ပိုတ်ႇ', 'သွၼ်', 'ႁဵၼ်းလိၵ်ႈ', 'ပဵၼ်', 'ပွၵ်ႈ', 'ၵမ်း', 'ႁႅၵ်း', 'မီး', 'သင်ၶ', 'ၸဝ်ႈ', 'မႃး', 'ႁဵၼ်း', '56', 'တူၼ်', '။']
-
+# ['တိူၵ်ႈ', 'သွၼ်လိၵ်ႈ', 'သင်ၶ', 'ၸဝ်ႈ', 'တီႈ', 'ဝဵင်း', 'မိူင်းၶၢၵ်ႇ', 'တႄႇ', 'ပိုတ်ႇ', 'သွၼ်', 'ႁဵၼ်းလိၵ်ႈ', 'ပဵၼ်', 'ပွၵ်ႈ', 'ၵမ်း', 'ႁႅၵ်း', 'မီး', 'သင်ၶ', 'ၸဝ်ႈ', 'မႃး', 'ႁဵၼ်း', '56', 'တူၼ်', '။']
+# 0.7088069915771484
 ```
 
 ### Digit convert

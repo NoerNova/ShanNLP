@@ -22,9 +22,10 @@ def word_tokenize(
 
         segments = segment(text, custom_dict)
     elif engine == "newmm":
-        from pythainlp.tokenize.newmm import segment
+        from pythainlp.tokenize import Tokenizer
+        _word = Tokenizer(DEFAULT_WORD_DICT_TRIE)
 
-        segments = segment(text, custom_dict)
+        segments = _word.word_tokenize(text)
     elif engine == "whitespace":
         segments = re.split(r" +", text, re.U)
     elif engine == "whitespce+newline":
