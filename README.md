@@ -1,5 +1,5 @@
 # ShanNLP: Shan Natural Language Processing
-**experimental project inspired by [PythaiNLP](https://github.com/PyThaiNLP/pythainlp)**
+**experimental project and self-research inspired by [PythaiNLP](https://github.com/PyThaiNLP/pythainlp)**
 
 ## Current State
 - [ ] corpus dict word: 19904 words (60% corvered and need more to collected)
