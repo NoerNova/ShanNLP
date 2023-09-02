@@ -1,6 +1,7 @@
 from shannlp.tokenize import (
     Tokenizer,
-    word_tokenize
+    word_tokenize,
+    syllable_tokenize
 )
 
 shan_consonants = "ၵၷၶꧠငၸၹသၺတၻထၼꧣပၽၾပၿႀမယရလꩮဝႁဢ"
