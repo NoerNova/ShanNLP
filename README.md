@@ -162,3 +162,21 @@ print(eng_to_shn("rgfbokifcMj"))
 print(shn_to_eng("ေၺၺူၼ"))
 # output apple
 ```
+
+## Citations
+```
+Wannaphong Phatthiyaphaibun, Korakot Chaovavanich, Charin Polpanumas, Arthit Suriyawongkul, Lalita Lowphansirikul, & Pattarawat Chormai. (2016, Jun 27). PyThaiNLP: Thai Natural Language Processing in Python. Zenodo. http://doi.org/10.5281/zenodo.3519354
+```
+
+BibText entry:
+```
+@misc{pythainlp,
+    author       = {Wannaphong Phatthiyaphaibun and Korakot Chaovavanich and Charin Polpanumas and Arthit Suriyawongkul and Lalita Lowphansirikul and Pattarawat Chormai},
+    title        = {{PyThaiNLP: Thai Natural Language Processing in Python}},
+    month        = Jun,
+    year         = 2016,
+    doi          = {10.5281/zenodo.3519354},
+    publisher    = {Zenodo},
+    url          = {http://doi.org/10.5281/zenodo.3519354}
+}
+```
