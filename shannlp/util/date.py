@@ -41,7 +41,7 @@ shan_full_months = [
 
 shan_full_month_lists = [
     ["လိူၼ်ၸဵင်", "01", "1"],
-    ["လိူၼ်သွင်", "02", "2"],
+    ["လိူၼ်ၵမ်", "02", "2"],
     ["လိူၼ်သၢမ်", "03", "3"],
     ["လိူၼ်သီႇ", "04", "4"],
     ["လိူၼ်ႁႃႈ", "05", "5"],
@@ -51,12 +51,12 @@ shan_full_month_lists = [
     ["လိူၼ်ၵဝ်ႈ", "09", "9"],
     ["လိူၼ်သိပ်း", "10"],
     ["လိူၼ်သိပ်းဢဵတ်း", "11"],
-    ["လိူၼ်သိပ်းသွင်", "12"]
+    ["လိူၼ်သိပ်းသွင်", "12"],
 ]
 
-shan_full_month_lists_regex = "(" + '|'.join(
-    [str('|'.join([j for j in i])) for i in shan_full_month_lists]
-) + ")"
+shan_full_month_lists_regex = (
+    "(" + "|".join([str("|".join([j for j in i])) for i in shan_full_month_lists]) + ")"
+)
 year_all_regex = r"(\d\d\d\d|\d\d)"
 dates_list = (
     "("
