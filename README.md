@@ -1,14 +1,18 @@
 # ShanNLP: Shan Natural Language Processing
+
 **experimental project and self-research inspired by [PythaiNLP](https://github.com/PyThaiNLP/pythainlp)**
 
 ## Current State
+
 - [ ] corpus dict word: 19904 words (60% corvered and need more to collected)
 
 ## Word Tokenization method
+
 - [x] maximal_matching
 - [x] pythainlp (newmm)
 
 ## TODO
+
 - [ ] mining more shan words, poem
 - [ ] experiment more method to tokenize
   - [ ] word tokenize
@@ -21,7 +25,11 @@
 - [ ] word_vector
 
 ## USAGE
+
 ### Install
+
+Clone this Repo
+
 ```python
 # this project using pythainlp dependecy
 # - Trie data structure
@@ -31,9 +39,16 @@ pip install -r requirements.txt
 # or pip install pythainlp
 ```
 
+Install with pip
+```bash
+pip install git+https://github.com/NoerNova/ShanNLP
+
+```
+
 ### Tokenization
 
 #### maximal_matching bruce-force
+
 ```python
 from shannlp import word_tokenize
 
@@ -56,6 +71,7 @@ print(word_tokenize(input_text))
 ```
 
 #### pythainlp newmm
+
 ```python
 from shannlp import word_tokenize
 import time
@@ -78,6 +94,7 @@ print(end - start)
 ```
 
 ### Digit convert
+
 ```python
 from shannlp.util import digit_to_text
 
@@ -88,6 +105,7 @@ print(digit_to_text("မႂ်ႇသုင်ပီမႂ်ႇတႆး ႒႑�
 ```
 
 #### num_to_word
+
 ```python
 from shannlp.util import num_to_shanword
 
@@ -96,6 +114,7 @@ print(num_to_shanword(2117))
 ```
 
 #### shanword_to_num
+
 ```python
 from shannlp.util import shanword_to_num
 
@@ -104,6 +123,7 @@ print(shanword_to_num("ထွၼ်ႁဵင်ၵဝ်ႈပၢၵ်ႇၵဝ
 ```
 
 #### text_to_num
+
 ```python
 from shannlp.util import text_to_num
 
@@ -112,7 +132,9 @@ print(text_to_num("သွင်ႁဵင်ၼိုင်ႈပၢၵ်ႇသ�
 ```
 
 ### Date converter
+
 #### ***need more reference for years converter***
+
 ```md
 current reference
 # https://shn.wikipedia.org/wiki/ဝၼ်းၸဵတ်းဝၼ်း_ၽၢႆႇတႆး
@@ -136,6 +158,7 @@ print(f"မိူဝ်ႈဝၼ်းသိုၼ်း {shanword_to_date('မ�
 ```
 
 #### years convert
+
 ```python
 from shannlp.util import convert_years
 
@@ -153,6 +176,7 @@ print(convert_years(2566, "be", "ga"))
 ```
 
 ### Keyboard
+
 ```python
 from shannlp.util import eng_to_shn, shn_to_eng
 
@@ -164,12 +188,14 @@ print(shn_to_eng("ေၺၺူၼ"))
 ```
 
 ## Citations
-```
+
+```txt
 Wannaphong Phatthiyaphaibun, Korakot Chaovavanich, Charin Polpanumas, Arthit Suriyawongkul, Lalita Lowphansirikul, & Pattarawat Chormai. (2016, Jun 27). PyThaiNLP: Thai Natural Language Processing in Python. Zenodo. http://doi.org/10.5281/zenodo.3519354
 ```
 
 BibText entry:
-```
+
+```txt
 @misc{pythainlp,
     author       = {Wannaphong Phatthiyaphaibun and Korakot Chaovavanich and Charin Polpanumas and Arthit Suriyawongkul and Lalita Lowphansirikul and Pattarawat Chormai},
     title        = {{PyThaiNLP: Thai Natural Language Processing in Python}},
