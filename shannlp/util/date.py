@@ -106,7 +106,7 @@ def convert_years(year: str, src="mo", target="ad") -> str:
         if target == "ad":
             output_year = str(int(year) - 543)
         elif target == "mo":
-            output_year = str(int(year) - 449)
+            output_year = str(int(year) - 448)
         elif target == "ga":
             output_year = str(int(year) - 1181)
     elif src == "ad":
@@ -120,7 +120,7 @@ def convert_years(year: str, src="mo", target="ad") -> str:
         if target == "ad":
             output_year = str(int(year) - 94)
         elif target == "be":
-            output_year = str(int(year) + 449)
+            output_year = str(int(year) + 448)
         elif target == "ga":
             output_year = str(int(year) - 732)
     elif src == "ga":
