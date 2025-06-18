@@ -3,26 +3,31 @@ from typing import List, Iterable, Union
 from shannlp.tokenize import DEFAULT_WORD_TOKENIZE_ENGINE, DEFAULT_WORD_DICT_TRIE
 
 # customize from pythainlp
-from shannlp.tokenize._utils import (apply_postprocessors, strip_whitespace, rejoin_formatted_num)
+from shannlp.tokenize._utils import (
+    apply_postprocessors,
+    strip_whitespace,
+    rejoin_formatted_num,
+)
 from pythainlp.util.trie import Trie, dict_trie
 
 
 def word_tokenize(
-        text: str,
-        custom_dict: Trie = None,
-        engine: str = DEFAULT_WORD_TOKENIZE_ENGINE,
-        keep_whitespace: bool = True,
-        join_broken_num: bool = True
+    text: str,
+    custom_dict: Trie = None,
+    engine: str = DEFAULT_WORD_TOKENIZE_ENGINE,
+    keep_whitespace: bool = True,
+    join_broken_num: bool = True,
 ) -> List[str]:
     if not text or not isinstance(text, str):
         return []
 
     if engine == "mm":
-        from shannlp.tokenize.m_matching import segment
+        from shannlp.tokenize.m_matching_optimized import segment
 
         segments = segment(text, custom_dict)
     elif engine == "newmm":
         from pythainlp.tokenize import Tokenizer
+
         _word = Tokenizer(DEFAULT_WORD_DICT_TRIE)
 
         segments = _word.word_tokenize(text)
@@ -31,9 +36,7 @@ def word_tokenize(
     elif engine == "whitespce+newline":
         segments = text.split()
     else:
-        raise ValueError(
-            f"""Tokenizer \"{engine}" not found."""
-        )
+        raise ValueError(f"""Tokenizer \"{engine}" not found.""")
 
     postprocessors = []
     if join_broken_num:
@@ -50,11 +53,11 @@ def word_tokenize(
 class Tokenizer:
 
     def __init__(
-            self,
-            custom_dict: Union[Trie, Iterable[str], str] = None,
-            engine: str = "mm",
-            keep_whitespace: bool = True,
-            join_broken_num: bool = True
+        self,
+        custom_dict: Union[Trie, Iterable[str], str] = None,
+        engine: str = "mm",
+        keep_whitespace: bool = True,
+        join_broken_num: bool = True,
     ):
         self.__tire_dict = None
         if custom_dict:
@@ -78,7 +81,7 @@ class Tokenizer:
             custom_dict=self.__tire_dict,
             engine=self.__engine,
             keep_whitespace=self.__keep_whitespace,
-            join_broken_num=self.__join_broken_num
+            join_broken_num=self.__join_broken_num,
         )
 
     def set_tokenize_engine(self, engine: str) -> None:
