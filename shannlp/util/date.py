@@ -132,7 +132,7 @@ def convert_years(year: str, src="mo", target="ad") -> str:
             output_year = str(int(year) + 732)
 
     if output_year is None:
-        raise NotImplementedError(f"This functino doesn't support {src} to {target}")
+        raise NotImplementedError(f"This function doesn't support {src} to {target}")
 
     return output_year
 
