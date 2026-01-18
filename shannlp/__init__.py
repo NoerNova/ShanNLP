@@ -3,6 +3,11 @@ from shannlp.tokenize import (
     word_tokenize,
     syllable_tokenize
 )
+from shannlp.spell import (
+    spell_correct,
+    SpellCorrector,
+    is_correct_spelling
+)
 
 shan_consonants = "ၵၷၶꧠငၸၹသၺတၻထၼꧣပၽၾပၿႀမယရလꩮဝႁဢ"
 shan_vowels = "\u1083\u1062\u1084\u1085\u1031\u1035\u102d\u102e\u102f\u1030\u1086\u1082\u103a\u103d\u103b\u103c"
