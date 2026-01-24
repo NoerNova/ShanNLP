@@ -6,8 +6,10 @@ algorithm enhanced with Shan-specific features:
 - Weighted edit distance based on character types
 - Phonetic similarity for consonants
 - Frequency-based ranking using Wikipedia data
+- Context-aware correction using n-gram models (Phase 2)
 
 Examples:
+    # Phase 1: Single word correction
     >>> from shannlp import spell_correct
     >>> suggestions = spell_correct("မိုင်း")
     >>> print(suggestions[0])
@@ -17,15 +19,25 @@ Examples:
     >>> corrector = SpellCorrector()
     >>> corrector.is_correct("မိူင်း")
     True
+
+    # Phase 2: Context-aware correction
+    >>> from shannlp.spell import ContextAwareCorrector
+    >>> corrector = ContextAwareCorrector()
+    >>> corrector.load_model("shan_ngram_model.msgpack")
+    >>> result = corrector.correct_sentence("your text here")
 """
 
 __all__ = [
     "spell_correct",
     "SpellCorrector",
-    "is_correct_spelling"
+    "is_correct_spelling",
+    "ContextAwareCorrector",
+    "NgramModel"
 ]
 
 from shannlp.spell.core import spell_correct, SpellCorrector
+from shannlp.spell.context import ContextAwareCorrector
+from shannlp.spell.ngram import NgramModel
 from shannlp.corpus import shan_words
 
 
