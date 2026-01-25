@@ -300,7 +300,7 @@ class NgramModel:
         """
         if tokenize_func is None:
             from shannlp.tokenize import word_tokenize
-            tokenize_func = lambda text: word_tokenize(text, keep_whitespace=False)
+            tokenize_func = lambda text: word_tokenize(text, engine="newmm", keep_whitespace=False)
 
         total_log_prob = 0.0
         total_words = 0
