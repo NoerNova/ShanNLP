@@ -143,7 +143,7 @@ class NgramModel:
         from shannlp.tokenize import word_tokenize
 
         if tokenize_func is None:
-            tokenize_func = lambda text: word_tokenize(text, keep_whitespace=False)
+            tokenize_func = lambda text: word_tokenize(text, engine="newmm", keep_whitespace=False)
 
         print(f"Training {self.n}-gram model...")
         total_tokens = 0
@@ -384,10 +384,13 @@ class NgramModel:
             True
         """
         # Try MessagePack first (preferred format)
+
         try:
             with open(filepath, 'rb') as f:
                 packed_data = msgpack.unpack(f, raw=False)
-
+                # Ensure packed_data is a dict
+                if not isinstance(packed_data, dict):
+                    raise TypeError("Unpacked MessagePack data is not a dictionary")
             # Successfully loaded as msgpack
             data = _deserialize_from_msgpack(packed_data)
             print(f"Model loaded from {filepath} (MessagePack format)")
@@ -413,7 +416,7 @@ class NgramModel:
 
         return model
 
-    def get_cache_stats(self) -> Dict[str, int]:
+    def get_cache_stats(self) -> Dict[str, int | float]:
         """Get cache performance statistics."""
         total = self._cache_hits + self._cache_misses
         hit_rate = self._cache_hits / total if total > 0 else 0
