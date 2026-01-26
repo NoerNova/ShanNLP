@@ -8,9 +8,13 @@ and efficient dictionary-based storage.
 
 import math
 import msgpack
+import time
+import sys
 from collections import defaultdict
-from typing import Dict, List, Tuple, Optional, Set, Any
+from typing import Dict, List, Tuple, Optional, Set, Any, Callable
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
 
 # Special tokens
@@ -124,7 +128,14 @@ class NgramModel:
         # Training flag
         self._is_trained = False
 
-    def train(self, texts: List[str], tokenize_func=None):
+    def train(
+        self,
+        texts: List[str],
+        tokenize_func: Optional[Callable] = None,
+        batch_size: int = 1000,
+        show_progress: bool = True,
+        num_workers: Optional[int] = None
+    ):
         """
         Train n-gram model on corpus of texts.
 
@@ -132,6 +143,10 @@ class NgramModel:
             texts: List of Shan text strings
             tokenize_func: Optional tokenization function.
                           If None, uses simple whitespace split.
+            batch_size: Number of texts to process before logging progress
+            show_progress: Whether to show progress updates
+            num_workers: Number of parallel workers for tokenization.
+                        None = auto-detect (CPU count - 1)
 
         Examples:
             >>> model = NgramModel(n=2)
@@ -145,42 +160,310 @@ class NgramModel:
         if tokenize_func is None:
             tokenize_func = lambda text: word_tokenize(text, engine="newmm", keep_whitespace=False)
 
-        print(f"Training {self.n}-gram model...")
+        total_texts = len(texts)
         total_tokens = 0
+        processed_texts = 0
+        start_time = time.time()
+        last_log_time = start_time
 
-        for text in texts:
-            # Tokenize
-            tokens = tokenize_func(text)
-            if not tokens:
-                continue
+        if show_progress:
+            print(f"=" * 60)
+            print(f"Training {self.n}-gram model on {total_texts:,} texts")
+            print(f"=" * 60)
+            print()
 
-            # Add start/end tokens
-            padded_tokens = [START_TOKEN] * (self.n - 1) + tokens + [END_TOKEN]
+        # Process in batches for better progress tracking
+        for batch_start in range(0, total_texts, batch_size):
+            batch_end = min(batch_start + batch_size, total_texts)
+            batch = texts[batch_start:batch_end]
 
-            # Extract n-grams
-            for i in range(len(padded_tokens) - self.n + 1):
-                # Get n-gram
-                ngram = tuple(padded_tokens[i:i + self.n])
+            batch_tokens = 0
+            for text in batch:
+                # Tokenize
+                tokens = tokenize_func(text)
+                if not tokens:
+                    continue
 
-                # Context is all but last word
-                context = ngram[:-1]
-                word = ngram[-1]
+                # Add start/end tokens
+                padded_tokens = [START_TOKEN] * (self.n - 1) + tokens + [END_TOKEN]
 
-                # Update counts
-                self.ngram_counts[context][word] += 1
-                self.context_counts[context] += 1
+                # Extract n-grams
+                for i in range(len(padded_tokens) - self.n + 1):
+                    # Get n-gram
+                    ngram = tuple(padded_tokens[i:i + self.n])
 
-                # Update vocabulary
-                if word not in {START_TOKEN, END_TOKEN}:
-                    self.vocabulary.add(word)
+                    # Context is all but last word
+                    context = ngram[:-1]
+                    word = ngram[-1]
 
-                total_tokens += 1
+                    # Update counts
+                    self.ngram_counts[context][word] += 1
+                    self.context_counts[context] += 1
+
+                    # Update vocabulary
+                    if word not in {START_TOKEN, END_TOKEN}:
+                        self.vocabulary.add(word)
+
+                    batch_tokens += 1
+
+            total_tokens += batch_tokens
+            processed_texts = batch_end
+
+            # Log progress
+            current_time = time.time()
+            if show_progress and (current_time - last_log_time >= 2.0 or processed_texts == total_texts):
+                elapsed = current_time - start_time
+                progress_pct = (processed_texts / total_texts) * 100
+                texts_per_sec = processed_texts / elapsed if elapsed > 0 else 0
+                tokens_per_sec = total_tokens / elapsed if elapsed > 0 else 0
+
+                # Estimate remaining time
+                if texts_per_sec > 0:
+                    remaining_texts = total_texts - processed_texts
+                    eta_seconds = remaining_texts / texts_per_sec
+                    eta_str = self._format_time(eta_seconds)
+                else:
+                    eta_str = "calculating..."
+
+                # Memory usage (approximate)
+                vocab_size = len(self.vocabulary)
+                context_count = len(self.context_counts)
+
+                # Progress bar
+                bar_width = 30
+                filled = int(bar_width * processed_texts / total_texts)
+                bar = "█" * filled + "░" * (bar_width - filled)
+
+                # Clear line and print progress
+                sys.stdout.write(f"\r[{bar}] {progress_pct:5.1f}% | "
+                               f"{processed_texts:,}/{total_texts:,} texts | "
+                               f"{tokens_per_sec:,.0f} tok/s | "
+                               f"ETA: {eta_str}")
+                sys.stdout.flush()
+
+                last_log_time = current_time
 
         self._is_trained = True
-        print(f"Training complete:")
-        print(f"  - Vocabulary size: {len(self.vocabulary)}")
-        print(f"  - Unique contexts: {len(self.context_counts)}")
-        print(f"  - Total {self.n}-grams: {total_tokens}")
+
+        # Final statistics
+        elapsed = time.time() - start_time
+        if show_progress:
+            print()  # New line after progress bar
+            print()
+            print(f"Training complete in {self._format_time(elapsed)}")
+            print(f"  - Texts processed: {total_texts:,}")
+            print(f"  - Total {self.n}-grams: {total_tokens:,}")
+            print(f"  - Vocabulary size: {len(self.vocabulary):,}")
+            print(f"  - Unique contexts: {len(self.context_counts):,}")
+            print(f"  - Average speed: {total_tokens / elapsed:,.0f} tokens/sec")
+            print()
+
+    def _format_time(self, seconds: float) -> str:
+        """Format seconds into human-readable time string."""
+        if seconds < 60:
+            return f"{seconds:.0f}s"
+        elif seconds < 3600:
+            minutes = seconds / 60
+            return f"{minutes:.1f}m"
+        else:
+            hours = seconds / 3600
+            return f"{hours:.1f}h"
+
+    def train_from_tokens(
+        self,
+        tokenized_texts: List[List[str]],
+        batch_size: int = 1000,
+        show_progress: bool = True
+    ):
+        """
+        Train n-gram model from pre-tokenized texts.
+
+        This is faster than train() when you have already tokenized your texts,
+        or when using parallel tokenization.
+
+        Args:
+            tokenized_texts: List of token lists (already tokenized)
+            batch_size: Number of texts to process before logging progress
+            show_progress: Whether to show progress updates
+
+        Examples:
+            >>> model = NgramModel(n=2)
+            >>> tokenized = [["မိူင်း", "ယူႇ"], ["မိူင်း", "လႄႈ"]]
+            >>> model.train_from_tokens(tokenized)
+            >>> model.is_trained
+            True
+        """
+        total_texts = len(tokenized_texts)
+        total_tokens = 0
+        processed_texts = 0
+        start_time = time.time()
+        last_log_time = start_time
+
+        if show_progress:
+            print(f"=" * 60)
+            print(f"Training {self.n}-gram model from {total_texts:,} pre-tokenized texts")
+            print(f"=" * 60)
+            print()
+
+        # Process in batches
+        for batch_start in range(0, total_texts, batch_size):
+            batch_end = min(batch_start + batch_size, total_texts)
+            batch = tokenized_texts[batch_start:batch_end]
+
+            batch_tokens = 0
+            for tokens in batch:
+                if not tokens:
+                    continue
+
+                # Add start/end tokens
+                padded_tokens = [START_TOKEN] * (self.n - 1) + tokens + [END_TOKEN]
+
+                # Extract n-grams
+                for i in range(len(padded_tokens) - self.n + 1):
+                    ngram = tuple(padded_tokens[i:i + self.n])
+                    context = ngram[:-1]
+                    word = ngram[-1]
+
+                    self.ngram_counts[context][word] += 1
+                    self.context_counts[context] += 1
+
+                    if word not in {START_TOKEN, END_TOKEN}:
+                        self.vocabulary.add(word)
+
+                    batch_tokens += 1
+
+            total_tokens += batch_tokens
+            processed_texts = batch_end
+
+            # Log progress
+            current_time = time.time()
+            if show_progress and (current_time - last_log_time >= 2.0 or processed_texts == total_texts):
+                elapsed = current_time - start_time
+                progress_pct = (processed_texts / total_texts) * 100
+                texts_per_sec = processed_texts / elapsed if elapsed > 0 else 0
+                tokens_per_sec = total_tokens / elapsed if elapsed > 0 else 0
+
+                if texts_per_sec > 0:
+                    remaining = total_texts - processed_texts
+                    eta_str = self._format_time(remaining / texts_per_sec)
+                else:
+                    eta_str = "calculating..."
+
+                bar_width = 30
+                filled = int(bar_width * processed_texts / total_texts)
+                bar = "█" * filled + "░" * (bar_width - filled)
+
+                sys.stdout.write(f"\r[{bar}] {progress_pct:5.1f}% | "
+                               f"{processed_texts:,}/{total_texts:,} texts | "
+                               f"{tokens_per_sec:,.0f} tok/s | "
+                               f"ETA: {eta_str}")
+                sys.stdout.flush()
+
+                last_log_time = current_time
+
+        self._is_trained = True
+
+        elapsed = time.time() - start_time
+        if show_progress:
+            print()
+            print()
+            print(f"Training complete in {self._format_time(elapsed)}")
+            print(f"  - Texts processed: {total_texts:,}")
+            print(f"  - Total {self.n}-grams: {total_tokens:,}")
+            print(f"  - Vocabulary size: {len(self.vocabulary):,}")
+            print(f"  - Unique contexts: {len(self.context_counts):,}")
+            print(f"  - Average speed: {total_tokens / elapsed:,.0f} tokens/sec")
+            print()
+
+    def prune_vocabulary(self, min_count: int = 2, show_progress: bool = True) -> int:
+        """
+        Prune rare words from vocabulary and replace with <UNK> token.
+
+        This significantly improves perplexity by reducing vocabulary size
+        and consolidating rare word counts.
+
+        Args:
+            min_count: Minimum word count to keep (default: 2)
+            show_progress: Show progress messages
+
+        Returns:
+            Number of words pruned
+
+        Examples:
+            >>> model = NgramModel(n=2)
+            >>> model.train(["word1 word2", "word1 word3"])
+            >>> pruned = model.prune_vocabulary(min_count=2)
+            >>> pruned >= 0
+            True
+        """
+        if not self._is_trained:
+            raise RuntimeError("Model must be trained before pruning")
+
+        if show_progress:
+            print(f"Pruning vocabulary (min_count={min_count})...")
+
+        # Step 1: Count total occurrences of each word
+        word_counts: Dict[str, int] = defaultdict(int)
+        for context, words in self.ngram_counts.items():
+            for word, count in words.items():
+                word_counts[word] += count
+
+        # Step 2: Identify rare words
+        rare_words = {
+            word for word, count in word_counts.items()
+            if count < min_count and word not in {START_TOKEN, END_TOKEN, UNK_TOKEN}
+        }
+
+        if show_progress:
+            print(f"  - Original vocabulary: {len(self.vocabulary):,}")
+            print(f"  - Words to prune: {len(rare_words):,}")
+
+        if not rare_words:
+            if show_progress:
+                print("  - No words to prune")
+            return 0
+
+        # Step 3: Rebuild n-gram counts with rare words → UNK
+        new_ngram_counts: Dict[Tuple[str, ...], Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        new_context_counts: Dict[Tuple[str, ...], int] = defaultdict(int)
+
+        for context, words in self.ngram_counts.items():
+            # Replace rare words in context with UNK
+            new_context = tuple(
+                UNK_TOKEN if w in rare_words else w
+                for w in context
+            )
+
+            for word, count in words.items():
+                # Replace rare word with UNK
+                new_word = UNK_TOKEN if word in rare_words else word
+
+                new_ngram_counts[new_context][new_word] += count
+                new_context_counts[new_context] += count
+
+        # Step 4: Update model
+        self.ngram_counts = new_ngram_counts
+        self.context_counts = new_context_counts
+
+        # Step 5: Update vocabulary
+        self.vocabulary = {
+            word for word in self.vocabulary
+            if word not in rare_words
+        }
+        self.vocabulary.add(UNK_TOKEN)
+
+        # Step 6: Clear cache (probabilities changed)
+        self._prob_cache.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+        if show_progress:
+            print(f"  - New vocabulary: {len(self.vocabulary):,}")
+            print(f"  - New contexts: {len(self.context_counts):,}")
+            print(f"  - Pruning complete")
+            print()
+
+        return len(rare_words)
 
     def probability(self, word: str, context: List[str]) -> float:
         """
@@ -285,7 +568,13 @@ class NgramModel:
 
         return total_log_prob
 
-    def perplexity(self, test_texts: List[str], tokenize_func=None) -> float:
+    def perplexity(
+        self,
+        test_texts: List[str],
+        tokenize_func: Callable = None,
+        batch_size: int = 1000,
+        show_progress: bool = True
+    ) -> float:
         """
         Calculate perplexity on test set.
 
@@ -294,6 +583,8 @@ class NgramModel:
         Args:
             test_texts: List of test texts
             tokenize_func: Tokenization function
+            batch_size: Number of texts per progress update
+            show_progress: Whether to show progress updates
 
         Returns:
             Perplexity value
@@ -304,12 +595,54 @@ class NgramModel:
 
         total_log_prob = 0.0
         total_words = 0
+        total_texts = len(test_texts)
+        processed_texts = 0
+        start_time = time.time()
+        last_log_time = start_time
 
         for text in test_texts:
             tokens = tokenize_func(text)
             if tokens:
                 total_log_prob += self.score_sequence(tokens)
                 total_words += len(tokens)
+
+            processed_texts += 1
+
+            # Log progress
+            current_time = time.time()
+            if show_progress and (current_time - last_log_time >= 2.0 or processed_texts == total_texts):
+                elapsed = current_time - start_time
+                progress_pct = (processed_texts / total_texts) * 100
+                texts_per_sec = processed_texts / elapsed if elapsed > 0 else 0
+
+                if texts_per_sec > 0:
+                    remaining = total_texts - processed_texts
+                    eta_str = self._format_time(remaining / texts_per_sec)
+                else:
+                    eta_str = "calculating..."
+
+                # Calculate running perplexity
+                if total_words > 0:
+                    running_ppl = math.exp(-total_log_prob / total_words)
+                    ppl_str = f"{running_ppl:.1f}"
+                else:
+                    ppl_str = "..."
+
+                bar_width = 30
+                filled = int(bar_width * processed_texts / total_texts)
+                bar = "█" * filled + "░" * (bar_width - filled)
+
+                sys.stdout.write(f"\r[{bar}] {progress_pct:5.1f}% | "
+                               f"{processed_texts:,}/{total_texts:,} texts | "
+                               f"{total_words:,} words | "
+                               f"ppl: {ppl_str} | "
+                               f"ETA: {eta_str}")
+                sys.stdout.flush()
+
+                last_log_time = current_time
+
+        if show_progress:
+            print()  # New line after progress bar
 
         if total_words == 0:
             return float('inf')

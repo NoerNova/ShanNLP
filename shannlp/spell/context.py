@@ -203,7 +203,7 @@ class ContextAwareCorrector:
             context_score = 0.0
 
             # Score with previous context
-            if context_before:
+            if context_before and self.ngram_model:
                 try:
                     prob_before = self.ngram_model.probability(
                         candidate_word,
@@ -214,7 +214,7 @@ class ContextAwareCorrector:
                     context_score = 0.0
 
             # Score with following context (if available and using trigrams)
-            if context_after and self.ngram_model.n >= 3:
+            if context_after and self.ngram_model and self.ngram_model.n >= 3:
                 try:
                     # P(next_word | candidate, prev)
                     next_word = context_after[0]

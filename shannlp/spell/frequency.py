@@ -6,7 +6,7 @@ corpus to help rank spelling correction suggestions.
 """
 
 import math
-from typing import Dict, Optional
+from typing import Dict, Optional, Mapping
 from shannlp.corpus import path_shannlp_corpus
 
 
@@ -16,7 +16,7 @@ _RAW_FREQUENCY_DATA: Optional[Dict[str, int]] = None
 _FREQUENCY_FILENAME = "shnwiki_freq.txt"
 
 
-def load_frequency_data(normalize: bool = True) -> Dict[str, float]:
+def load_frequency_data(normalize: bool = True) -> Mapping[str, float]:
     """
     Load and process Wikipedia frequency data.
 
@@ -121,7 +121,7 @@ def load_frequency_data(normalize: bool = True) -> Dict[str, float]:
 
 def get_word_probability(
     word: str,
-    frequency_data: Optional[Dict[str, float]] = None
+    frequency_data: Optional[Mapping[str, float]] = None
 ) -> float:
     """
     Get probability of a word appearing in text.
@@ -174,8 +174,15 @@ def get_word_count(
         True
     """
     if frequency_data is None:
-        frequency_data = load_frequency_data(normalize=False)
+        raw_data = load_frequency_data(normalize=False)
+        # Ensure type safety: only accept dicts with int values
+        if all(isinstance(v, int) for v in raw_data.values()):
+            frequency_data = raw_data  # type: ignore
+        else:
+            frequency_data = {}
 
+    if frequency_data is None:
+        return 0
     return frequency_data.get(word, 0)
 
 
