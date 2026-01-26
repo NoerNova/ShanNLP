@@ -5,33 +5,138 @@ This script reads Shan text files, trains a bigram or trigram model,
 and saves it for use in context-aware spell correction.
 
 Usage:
-    python train_ngram_model.py --corpus_dir /path/to/texts --output model.pkl --ngram 2
+    python train_ngram_model.py --corpus_dir /path/to/texts --output model.msgpack --ngram 2
 
 Requirements:
     - Corpus directory with .txt files (UTF-8 encoded Shan text)
     - At least 1 MB of text recommended (more is better)
+
+Performance Tips:
+    - Larger batch_size uses more memory but is faster
+    - Use --verbose for detailed logging
 """
 
 import argparse
 import os
 import sys
+import time
+import gc
 from pathlib import Path
 from typing import List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from shannlp.spell.ngram import NgramModel
 from shannlp.tokenize import word_tokenize
+import multiprocessing
 
 
-def load_corpus_from_directory(corpus_dir: str, file_extension: str = ".txt") -> List[str]:
+def _tokenize_text(text: str) -> List[str]:
+    """Tokenize a single text (for parallel processing)."""
+    try:
+        return word_tokenize(text, engine="newmm", keep_whitespace=False)
+    except:
+        return []
+
+
+def parallel_tokenize(
+    texts: List[str],
+    num_workers: int = None,
+    batch_size: int = 100,
+    show_progress: bool = True
+) -> List[List[str]]:
     """
-    Load all text files from directory.
+    Tokenize texts in parallel using multiprocessing.
+
+    Args:
+        texts: List of texts to tokenize
+        num_workers: Number of parallel workers (default: CPU count - 1)
+        batch_size: Texts per progress update
+        show_progress: Show progress bar
+
+    Returns:
+        List of tokenized texts (list of token lists)
+    """
+    if num_workers is None:
+        num_workers = max(1, multiprocessing.cpu_count() - 1)
+
+    total_texts = len(texts)
+
+    if show_progress:
+        print(f"Tokenizing {total_texts:,} texts using {num_workers} workers...")
+
+    start_time = time.time()
+    tokenized = []
+
+    # Use multiprocessing Pool for CPU-bound tokenization
+    with multiprocessing.Pool(processes=num_workers) as pool:
+        # Process in chunks for progress updates
+        chunk_size = max(batch_size, total_texts // 100)  # At least 100 updates
+
+        for i in range(0, total_texts, chunk_size):
+            chunk = texts[i:i + chunk_size]
+            chunk_results = pool.map(_tokenize_text, chunk)
+            tokenized.extend(chunk_results)
+
+            if show_progress:
+                progress = len(tokenized) / total_texts * 100
+                elapsed = time.time() - start_time
+                rate = len(tokenized) / elapsed if elapsed > 0 else 0
+
+                if rate > 0:
+                    eta = (total_texts - len(tokenized)) / rate
+                    eta_str = f"{eta:.0f}s" if eta < 60 else f"{eta/60:.1f}m"
+                else:
+                    eta_str = "..."
+
+                bar_width = 30
+                filled = int(bar_width * len(tokenized) / total_texts)
+                bar = "█" * filled + "░" * (bar_width - filled)
+
+                sys.stdout.write(f"\r[{bar}] {progress:5.1f}% | "
+                               f"{len(tokenized):,}/{total_texts:,} | "
+                               f"{rate:,.0f} texts/s | "
+                               f"ETA: {eta_str}")
+                sys.stdout.flush()
+
+    elapsed = time.time() - start_time
+    if show_progress:
+        print()
+        print(f"Tokenization complete in {elapsed:.1f}s ({total_texts/elapsed:,.0f} texts/s)")
+        print()
+
+    return tokenized
+
+
+def _load_single_file(file_path: Path) -> tuple:
+    """Load a single file and return (filename, lines, error)."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if content:
+                lines = [line.strip() for line in content.split('\n') if line.strip()]
+                return (file_path.name, lines, None)
+            return (file_path.name, [], None)
+    except Exception as e:
+        return (file_path.name, [], str(e))
+
+
+def load_corpus_from_directory(
+    corpus_dir: str,
+    file_extension: str = ".txt",
+    verbose: bool = True,
+    num_workers: int = 4
+) -> List[str]:
+    """
+    Load all text files from directory with parallel I/O.
 
     Args:
         corpus_dir: Path to directory containing text files
         file_extension: File extension to look for (default: .txt)
+        verbose: Show detailed progress
+        num_workers: Number of parallel file readers
 
     Returns:
         List of text strings
@@ -41,26 +146,53 @@ def load_corpus_from_directory(corpus_dir: str, file_extension: str = ".txt") ->
     if not corpus_path.exists():
         raise FileNotFoundError(f"Corpus directory not found: {corpus_dir}")
 
-    texts = []
-    file_count = 0
+    # Get all files
+    files = list(corpus_path.glob(f"*{file_extension}"))
+    total_files = len(files)
+
+    if total_files == 0:
+        print(f"No {file_extension} files found in {corpus_dir}")
+        return []
 
     print(f"Loading corpus from: {corpus_dir}")
+    print(f"Found {total_files} {file_extension} files")
+    print()
 
-    for file_path in corpus_path.glob(f"*{file_extension}"):
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
-                if content:
-                    # Split into sentences/lines
-                    lines = [line.strip() for line in content.split('\n') if line.strip()]
-                    texts.extend(lines)
-                    file_count += 1
-                    print(f"  Loaded: {file_path.name} ({len(lines)} lines)")
-        except Exception as e:
-            print(f"  Error loading {file_path.name}: {e}")
-            continue
+    texts = []
+    loaded_count = 0
+    error_count = 0
+    total_bytes = 0
+    start_time = time.time()
 
-    print(f"\nTotal: {file_count} files, {len(texts)} text segments")
+    # Use thread pool for parallel file I/O
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(_load_single_file, f): f for f in files}
+
+        for future in as_completed(futures):
+            filename, lines, error = future.result()
+            loaded_count += 1
+
+            if error:
+                error_count += 1
+                if verbose:
+                    print(f"  Error loading {filename}: {error}")
+            elif lines:
+                texts.extend(lines)
+                if verbose and loaded_count % 10 == 0:
+                    elapsed = time.time() - start_time
+                    progress = (loaded_count / total_files) * 100
+                    sys.stdout.write(f"\r  Loading files: {loaded_count}/{total_files} ({progress:.1f}%) - {len(texts):,} lines")
+                    sys.stdout.flush()
+
+    elapsed = time.time() - start_time
+    print()
+    print(f"\nCorpus loading complete in {elapsed:.1f}s")
+    print(f"  - Files loaded: {loaded_count - error_count}/{total_files}")
+    if error_count > 0:
+        print(f"  - Files with errors: {error_count}")
+    print(f"  - Total text segments: {len(texts):,}")
+    print()
+
     return texts
 
 
@@ -69,7 +201,12 @@ def train_model(
     output_path: str,
     ngram_order: int = 2,
     smoothing: float = 1.0,
-    test_split: float = 0.1
+    test_split: float = 0.1,
+    batch_size: int = 1000,
+    verbose: bool = True,
+    num_workers: int = None,
+    use_parallel: bool = True,
+    min_count: int = 2
 ):
     """
     Train n-gram model from corpus.
@@ -80,14 +217,36 @@ def train_model(
         ngram_order: N-gram order (2=bigram, 3=trigram)
         smoothing: Laplace smoothing parameter
         test_split: Fraction of data to use for testing (0-1)
+        batch_size: Number of texts per training batch
+        verbose: Show detailed progress
+        num_workers: Number of parallel workers for tokenization
+        use_parallel: Use parallel tokenization (faster)
+        min_count: Minimum word count to keep (prune rare words)
     """
+    overall_start = time.time()
+
+    if num_workers is None:
+        num_workers = max(1, multiprocessing.cpu_count() - 1)
+
     print("=" * 60)
     print(f"Training {ngram_order}-gram Model for Shan")
     print("=" * 60)
     print()
+    print(f"Configuration:")
+    print(f"  - N-gram order: {ngram_order}")
+    print(f"  - Smoothing: {smoothing}")
+    print(f"  - Test split: {test_split * 100:.0f}%")
+    print(f"  - Batch size: {batch_size:,}")
+    print(f"  - Parallel workers: {num_workers}")
+    print(f"  - Parallel tokenization: {'enabled' if use_parallel else 'disabled'}")
+    print(f"  - Min word count: {min_count} (prune rare words)")
+    print()
 
     # Load corpus
-    texts = load_corpus_from_directory(corpus_dir)
+    print("-" * 60)
+    print("Step 1/5: Loading corpus")
+    print("-" * 60)
+    texts = load_corpus_from_directory(corpus_dir, verbose=verbose)
 
     if not texts:
         print("Error: No texts found in corpus directory!")
@@ -98,35 +257,127 @@ def train_model(
     train_texts = texts[:split_idx]
     test_texts = texts[split_idx:]
 
-    print(f"\nTrain/test split:")
-    print(f"  - Training texts: {len(train_texts)}")
-    print(f"  - Test texts: {len(test_texts)}")
+    print("-" * 60)
+    print("Step 2/5: Data split")
+    print("-" * 60)
+    print(f"  - Training texts: {len(train_texts):,}")
+    print(f"  - Test texts: {len(test_texts):,}")
     print()
 
-    # Create and train model
+    # Free memory
+    del texts
+    gc.collect()
+
+    # Pre-tokenize training data in parallel (this is the slow step)
+    print("-" * 60)
+    print("Step 3/5: Tokenizing training data")
+    print("-" * 60)
+    tokenize_start = time.time()
+
+    if use_parallel and len(train_texts) > 1000:
+        # Use parallel tokenization for large datasets
+        train_tokenized = parallel_tokenize(
+            train_texts,
+            num_workers=num_workers,
+            show_progress=verbose
+        )
+    else:
+        # Sequential tokenization for small datasets
+        print(f"Tokenizing {len(train_texts):,} texts sequentially...")
+        train_tokenized = []
+        for i, text in enumerate(train_texts):
+            tokens = word_tokenize(text, engine="newmm", keep_whitespace=False)
+            train_tokenized.append(tokens)
+            if verbose and (i + 1) % 1000 == 0:
+                print(f"  Tokenized {i + 1:,}/{len(train_texts):,} texts")
+        print()
+
+    tokenize_elapsed = time.time() - tokenize_start
+    print(f"Tokenization time: {tokenize_elapsed:.1f}s")
+    print()
+
+    # Free original texts
+    del train_texts
+    gc.collect()
+
+    # Create and train model from pre-tokenized data
     model = NgramModel(n=ngram_order, smoothing=smoothing)
 
-    # Define tokenization function
-    def tokenize(text):
-        return word_tokenize(text, engine="newmm", keep_whitespace=False)
+    print("-" * 60)
+    print("Step 4/6: Building n-gram model")
+    print("-" * 60)
+    train_start = time.time()
+    model.train_from_tokens(train_tokenized, batch_size=batch_size, show_progress=verbose)
+    train_elapsed = time.time() - train_start
 
-    # Train
-    print("Training model...")
-    model.train(train_texts, tokenize_func=tokenize)
-    print()
+    # Free tokenized data
+    del train_tokenized
+    gc.collect()
+
+    # Prune vocabulary (important for reducing perplexity)
+    print("-" * 60)
+    print("Step 5/6: Pruning rare words")
+    print("-" * 60)
+    prune_start = time.time()
+    pruned_count = model.prune_vocabulary(min_count=min_count, show_progress=verbose)
+    prune_elapsed = time.time() - prune_start
 
     # Evaluate on test set
     if test_texts:
-        print("Evaluating on test set...")
-        perplexity = model.perplexity(test_texts, tokenize_func=tokenize)
-        print(f"Test perplexity: {perplexity:.2f}")
-        print("(Lower perplexity = better model)")
+        print("-" * 60)
+        print("Step 6/6: Evaluating on test set")
+        print("-" * 60)
+        eval_start = time.time()
+        print(f"Evaluating on {len(test_texts):,} test texts...")
+        print()
+
+        def tokenize(text):
+            return word_tokenize(text, engine="newmm", keep_whitespace=False)
+
+        perplexity = model.perplexity(
+            test_texts,
+            tokenize_func=tokenize,
+            show_progress=verbose
+        )
+        eval_elapsed = time.time() - eval_start
+
+        print()
+        print(f"  - Final perplexity: {perplexity:.2f}")
+        print(f"  - Evaluation time: {eval_elapsed:.1f}s")
+        print()
+        print("Perplexity guide:")
+        print("  < 50: Excellent model")
+        print("  50-100: Good model")
+        print("  100-200: Acceptable model")
+        print("  > 200: Need more training data")
+        print()
+    else:
+        print("-" * 60)
+        print("Step 6/6: Skipping evaluation (no test data)")
+        print("-" * 60)
         print()
 
     # Save model
+    print("-" * 60)
+    print("Saving model")
+    print("-" * 60)
     model.save(output_path)
+
+    # Final summary
+    overall_elapsed = time.time() - overall_start
     print()
-    print(f"✓ Model saved to: {output_path}")
+    print("=" * 60)
+    print("Training Complete")
+    print("=" * 60)
+    print()
+    print(f"  Model saved to: {output_path}")
+    print(f"  Total time: {overall_elapsed:.1f}s ({overall_elapsed/60:.1f} min)")
+    print(f"    - Tokenization: {tokenize_elapsed:.1f}s")
+    print(f"    - N-gram building: {train_elapsed:.1f}s")
+    print()
+    print("Model Statistics:")
+    print(f"  - Vocabulary size: {len(model.vocabulary):,}")
+    print(f"  - Unique contexts: {len(model.context_counts):,}")
     print()
 
     # Example usage
@@ -150,7 +401,22 @@ def train_model(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train n-gram model for Shan spell correction"
+        description="Train n-gram model for Shan spell correction",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train bigram model (faster, good for real-time)
+  python train_ngram_model.py --corpus_dir ./my_corpus --output bigram.msgpack --ngram 2
+
+  # Train trigram model (more accurate)
+  python train_ngram_model.py --corpus_dir ./my_corpus --output trigram.msgpack --ngram 3
+
+  # Fast training with larger batch size
+  python train_ngram_model.py --corpus_dir ./my_corpus --batch_size 5000
+
+  # Quiet mode (less output)
+  python train_ngram_model.py --corpus_dir ./my_corpus --quiet
+"""
     )
 
     parser.add_argument(
@@ -189,6 +455,39 @@ def main():
         help="Fraction of data for testing (default: 0.1)"
     )
 
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=1000,
+        help="Texts per batch for training progress updates (default: 1000)"
+    )
+
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers for tokenization (default: CPU count - 1)"
+    )
+
+    parser.add_argument(
+        "--no-parallel",
+        action="store_true",
+        help="Disable parallel tokenization (use for debugging)"
+    )
+
+    parser.add_argument(
+        "--min-count",
+        type=int,
+        default=2,
+        help="Minimum word count to keep (prune rare words, default: 2)"
+    )
+
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Reduce output verbosity"
+    )
+
     args = parser.parse_args()
 
     try:
@@ -197,8 +496,16 @@ def main():
             output_path=args.output,
             ngram_order=args.ngram,
             smoothing=args.smoothing,
-            test_split=args.test_split
+            test_split=args.test_split,
+            batch_size=args.batch_size,
+            verbose=not args.quiet,
+            num_workers=args.workers,
+            use_parallel=not args.no_parallel,
+            min_count=args.min_count
         )
+    except KeyboardInterrupt:
+        print("\n\nTraining interrupted by user.")
+        sys.exit(1)
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
