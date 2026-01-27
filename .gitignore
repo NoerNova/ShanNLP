@@ -7,3 +7,6 @@ venv/
 
 test.py
 labs.ipynb
+example*
+
+data/
