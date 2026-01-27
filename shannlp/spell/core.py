@@ -175,9 +175,10 @@ def generate_candidates(
     if candidates_1:
         candidates.update(candidates_1)
 
-    # Level 2: Edit distance 2 (only if max_distance >= 2 and few level 1 candidates)
-    if max_distance >= 2 and len(candidates) < 5:
-        # Generate edits2 from edits1 candidates
+    # Level 2: Edit distance 2 (always generate if max_distance >= 2)
+    # Previous bug: skipped level 2 if len(candidates) >= 5, missing valid corrections
+    if max_distance >= 2:
+        # Generate edits2 from ALL edits1 (not just dictionary matches)
         edits2 = set()
         for e1 in edits1:
             edits2.update(edits_distance_1(e1, use_phonetic, phonetic_groups))
