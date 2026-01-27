@@ -33,7 +33,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -74,7 +74,7 @@ def train_epoch(
 
         # Forward pass with mixed precision
         if scaler is not None:
-            with autocast():
+            with autocast('cuda'):
                 scores = model(
                     error_chars, error_lengths,
                     candidate_chars, candidate_lengths,
