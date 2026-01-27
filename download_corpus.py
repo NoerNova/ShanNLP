@@ -42,8 +42,10 @@ def split_into_sentences(text: str) -> List[str]:
         return []
 
     # Split by Shan sentence delimiter and newlines
+    # Myanmar/Shan sentence marker: ၊ (U+104A)
     # Myanmar/Shan sentence marker: ။ (U+104B)
-    sentences = re.split(r'[။\n]+', text)
+    text = re.sub(r'\s+([။၊])', r'\1', text)
+    sentences = re.split(r'(?<=[။၊\n])', text)
 
     # Clean and filter
     sentences = [s.strip() for s in sentences]
