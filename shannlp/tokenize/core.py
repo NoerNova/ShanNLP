@@ -9,6 +9,18 @@ from shannlp.tokenize._utils import (
     rejoin_formatted_num,
 )
 from pythainlp.util.trie import Trie, dict_trie
+from pythainlp.tokenize import Tokenizer as PyThaiTokenizer
+
+# Cache for newmm tokenizers - keyed by Trie id to support different dictionaries
+_tokenizer_cache = {}
+
+
+def _get_cached_tokenizer(custom_dict: Trie) -> PyThaiTokenizer:
+    """Get or create a cached tokenizer for the given dictionary."""
+    cache_key = id(custom_dict)
+    if cache_key not in _tokenizer_cache:
+        _tokenizer_cache[cache_key] = PyThaiTokenizer(custom_dict=custom_dict, engine="newmm")
+    return _tokenizer_cache[cache_key]
 
 
 def word_tokenize(
@@ -26,11 +38,9 @@ def word_tokenize(
 
         segments = segment(text, custom_dict)
     elif engine == "newmm":
-        from pythainlp.tokenize import Tokenizer
-
-        _word = Tokenizer(DEFAULT_WORD_DICT_TRIE)
-
-        segments = _word.word_tokenize(text)
+        trie_dict = custom_dict if custom_dict else DEFAULT_WORD_DICT_TRIE
+        tokenizer = _get_cached_tokenizer(trie_dict)
+        segments = tokenizer.word_tokenize(text)
     elif engine == "whitespace":
         segments = re.split(r" +", text, re.U)
     elif engine == "whitespce+newline":
