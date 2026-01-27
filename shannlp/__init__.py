@@ -5,6 +5,8 @@ from shannlp.tokenize import (
 )
 from shannlp.spell import (
     spell_correct,
+    correct_sentence,
+    correct_text,
     SpellCorrector,
     is_correct_spelling
 )
