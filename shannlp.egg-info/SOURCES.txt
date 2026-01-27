@@ -23,6 +23,12 @@ shannlp/corpus/shan_vowels.txt
 shannlp/corpus/shnwiki_freq.txt
 shannlp/corpus/stopwords_shn.txt
 shannlp/corpus/words_shn.txt
+shannlp/spell/__init__.py
+shannlp/spell/core.py
+shannlp/spell/distance.py
+shannlp/spell/frequency.py
+shannlp/spell/phonetic.py
+shannlp/spell/validator.py
 shannlp/tokenize/__init__.py
 shannlp/tokenize/_utils.py
 shannlp/tokenize/core.py
@@ -38,3 +44,4 @@ shannlp/util/keyboard.py
 shannlp/util/numtoword.py
 shannlp/util/shan.py
 shannlp/util/wordtonum.py
+tests/test_spell_integration.py
