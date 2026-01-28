@@ -571,7 +571,7 @@ class NgramModel:
     def perplexity(
         self,
         test_texts: List[str],
-        tokenize_func: Callable = None,
+        tokenize_func: Optional[Callable] = None,
         batch_size: int = 1000,
         show_progress: bool = True
     ) -> float:
