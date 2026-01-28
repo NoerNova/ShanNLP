@@ -66,6 +66,14 @@ class SpellDataset(Dataset):
         self.samples = self._load_data(data_path)
         print(f"Loaded {len(self.samples)} training samples")
 
+        # Check if data has pre-generated candidates
+        has_candidates = sum(1 for s in self.samples if 'candidates' in s)
+        if has_candidates > 0:
+            print(f"  {has_candidates}/{len(self.samples)} samples have pre-generated candidates")
+        elif self.generate_candidates:
+            print("  WARNING: No pre-generated candidates found. This will be VERY SLOW!")
+            print("  Run 'python preprocess_training_data.py --batch' to pre-generate candidates.")
+
     def _load_data(self, data_path: str) -> List[Dict]:
         """Load training data from JSONL file."""
         samples = []
@@ -83,17 +91,25 @@ class SpellDataset(Dataset):
 
         return samples
 
-    def _get_candidates(self, error: str, correct: str) -> Tuple[List[str], int]:
+    def _get_candidates(self, error: str, correct: str, pregenerated: List[str] = None) -> Tuple[List[str], int]:
         """
         Get candidates for an error word.
+
+        Args:
+            error: The misspelled word
+            correct: The correct word
+            pregenerated: Pre-generated candidates (if available)
 
         Returns:
             Tuple of (candidates list, correct index)
         """
         candidates = []
 
-        # Get candidates from spell corrector
-        if self.generate_candidates:
+        # Use pre-generated candidates if available
+        if pregenerated:
+            candidates = list(pregenerated)
+        # Otherwise generate on-the-fly (WARNING: slow!)
+        elif self.generate_candidates:
             try:
                 suggestions = spell_correct(
                     error,
@@ -156,8 +172,9 @@ class SpellDataset(Dataset):
             else:
                 context_right = ""
 
-        # Get candidates
-        candidates, correct_idx = self._get_candidates(error, correct)
+        # Get candidates (use pre-generated if available)
+        pregenerated = sample.get('candidates')
+        candidates, correct_idx = self._get_candidates(error, correct, pregenerated)
 
         # Encode error
         error_chars, error_len = self._encode_text(error, self.max_word_len)
