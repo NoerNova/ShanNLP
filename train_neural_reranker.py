@@ -74,7 +74,7 @@ def train_epoch(
 
         # Forward pass with mixed precision
         if scaler is not None:
-            with autocast('cuda'):
+            with autocast(device_type=device):
                 scores = model(
                     error_chars, error_lengths,
                     candidate_chars, candidate_lengths,
