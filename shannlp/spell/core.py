@@ -42,7 +42,8 @@ def spell_correct(
     max_suggestions: int = 5,
     use_frequency: bool = True,
     use_phonetic: bool = True,
-    min_confidence: float = 0.1
+    min_confidence: float = 0.1,
+    always_suggest_alternatives: bool = False
 ) -> List[Tuple[str, float]]:
     """
     Correct spelling of a single Shan word.
@@ -59,6 +60,9 @@ def spell_correct(
         use_frequency: Use frequency data for ranking
         use_phonetic: Use phonetic similarity for better candidates
         min_confidence: Minimum confidence threshold (0.0 to 1.0)
+        always_suggest_alternatives: Generate alternatives even for dictionary
+            words (useful for context-aware/neural reranking where a valid
+            word might not be the best choice in context)
 
     Returns:
         List of (suggestion, confidence) tuples, sorted by confidence descending
@@ -82,6 +86,11 @@ def spell_correct(
         >>> custom = {"ၵႃႈ", "မူၼ်း"}
         >>> spell_correct("ၵႃႈ", custom_dict=custom)
         [('ၵႃႈ', 1.0)]
+
+        >>> # Get alternatives even for dictionary words
+        >>> results = spell_correct("မိူင်", always_suggest_alternatives=True)
+        >>> len(results) > 1  # Multiple candidates including မိူင်း
+        True
     """
     # Validate and normalize input
     validate_input(word)
@@ -100,7 +109,8 @@ def spell_correct(
         dictionary,
         max_edit_distance,
         use_phonetic,
-        phonetic_groups
+        phonetic_groups,
+        always_suggest_alternatives
     )
 
     # If no candidates found, return empty list
@@ -132,7 +142,8 @@ def generate_candidates(
     dictionary: Union[Set[str], frozenset],
     max_distance: int,
     use_phonetic: bool,
-    phonetic_groups: dict
+    phonetic_groups: dict,
+    always_suggest_alternatives: bool = False
 ) -> Set[str]:
     """
     Generate candidate corrections for a word.
@@ -149,6 +160,8 @@ def generate_candidates(
         max_distance: Maximum edit distance (1 or 2)
         use_phonetic: Include phonetic substitutions
         phonetic_groups: Phonetic similarity groups
+        always_suggest_alternatives: If True, generate alternatives even for
+            dictionary words (useful for context-aware/neural reranking)
 
     Returns:
         Set of candidate words
@@ -163,9 +176,12 @@ def generate_candidates(
     limiter = ResourceLimiter()
 
     # Level 0: Word is already in dictionary
-    if word in dictionary:
+    word_in_dict = word in dictionary
+    if word_in_dict:
         candidates.add(word)
-        return candidates
+        # Return early unless we want alternatives for context-aware correction
+        if not always_suggest_alternatives:
+            return candidates
 
     # Level 1: Edit distance 1
     edits1 = edits_distance_1(word, use_phonetic, phonetic_groups)

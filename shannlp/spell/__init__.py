@@ -38,11 +38,20 @@ __all__ = [
     "correct_text",
     "is_correct_spelling",
     "reload_model",
+    "load_neural_model",
     # Advanced API
     "SpellCorrector",
     "ContextAwareCorrector",
     "NgramModel",
 ]
+
+# Optional neural model support
+try:
+    from shannlp.spell.neural import SpellReranker
+    __all__.append("SpellReranker")
+    NEURAL_AVAILABLE = True
+except ImportError:
+    NEURAL_AVAILABLE = False
 
 from shannlp.spell.core import spell_correct, SpellCorrector
 from shannlp.spell.context import ContextAwareCorrector
@@ -118,7 +127,8 @@ def correct_sentence(
     sentence: str,
     model_path: Optional[str] = None,
     min_confidence: float = 0.3,
-    use_context: bool = True
+    use_context: bool = True,
+    separator: str = " "
 ) -> str:
     """
     Correct spelling errors in a Shan sentence.
@@ -127,12 +137,16 @@ def correct_sentence(
     It uses context from surrounding words to make better corrections.
 
     The n-gram model is automatically loaded on first use (lazy loading).
+    If a neural model has been loaded via load_neural_model(), it will be
+    used for improved context-aware reranking.
 
     Args:
         sentence: Input sentence to correct
         model_path: Custom n-gram model path (None = use default bundled model)
         min_confidence: Minimum confidence threshold for corrections (0.0-1.0)
         use_context: Use n-gram context for better accuracy (recommended)
+        separator: String to join corrected tokens (default: " ").
+                   Use "" for no spaces (traditional Shan text).
 
     Returns:
         Corrected sentence as string
@@ -140,12 +154,19 @@ def correct_sentence(
     Examples:
         >>> from shannlp import correct_sentence
 
-        # Basic usage
+        # Basic usage (with spaces between tokens)
         >>> result = correct_sentence("ၵူၼ်မိူင်း ၵိၼ် ၶဝ်ႈ")
         >>> print(result)
 
-        # With custom model
-        >>> result = correct_sentence("text here", model_path="my_model.msgpack")
+        # No spaces (traditional Shan)
+        >>> result = correct_sentence("ၵူၼ်မိူင်းၵိၼ်ၶဝ်ႈ", separator="")
+        >>> print(result)
+
+        # With neural model for better context-aware correction
+        >>> from shannlp.spell import load_neural_model
+        >>> load_neural_model("spell_reranker.pt")
+        >>> result = correct_sentence("မိူင်တႆးပဵၼ်မိူင်းၶိုၼ်ႉယႂ်")
+        >>> print(result)  # Neural model helps correct valid-but-wrong words
 
         # Without context (faster, less accurate)
         >>> result = correct_sentence("text here", use_context=False)
@@ -161,11 +182,17 @@ def correct_sentence(
                 corrected.append(suggestions[0][0])
             else:
                 corrected.append(token)
-        return " ".join(corrected)
+        return separator.join(corrected)
 
     # Use context-aware correction
     corrector = _get_context_corrector(model_path)
-    return corrector.correct_sentence(sentence)
+    result = corrector.correct_sentence(sentence)
+
+    # Apply custom separator if not default space
+    if separator != " ":
+        result = separator.join(result.split())
+
+    return result
 
 
 def correct_text(
@@ -249,3 +276,35 @@ def reload_model(model_path: Optional[str] = None) -> None:
     """
     _get_context_corrector(model_path, force_reload=True)
     print("Model reloaded successfully")
+
+
+def load_neural_model(model_path: str, device: str = None) -> None:
+    """
+    Load a neural reranker model for improved spell correction.
+
+    The neural model uses context to make better correction decisions,
+    especially for words that are valid but incorrect in context.
+
+    Args:
+        model_path: Path to trained neural model (.pt file)
+        device: Device to use (cuda, mps, cpu). Auto-detected if None.
+
+    Examples:
+        >>> from shannlp.spell import load_neural_model, correct_sentence
+        >>> load_neural_model("spell_reranker.pt")
+        >>> result = correct_sentence("မိူင်တႆးပဵၼ်မိူင်းၶိုၼ်ႉယႂ်")
+        >>> print(result)
+
+    Note:
+        Requires PyTorch. Install with: pip install torch
+        Train a model using train_neural_reranker.py
+    """
+    if not NEURAL_AVAILABLE:
+        raise ImportError(
+            "Neural model support requires PyTorch. "
+            "Install with: pip install torch"
+        )
+
+    corrector = _get_context_corrector()
+    corrector.load_neural_model(model_path, device)
+    print(f"Neural model loaded. Using neural reranking for improved accuracy.")

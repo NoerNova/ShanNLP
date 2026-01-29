@@ -4,13 +4,25 @@ Context-aware spell correction for Shan language.
 This module provides sentence-level spell correction that uses surrounding
 words to make better correction decisions. Optimized for real-time typing
 assistance with <100ms latency.
+
+Supports two reranking modes:
+1. N-gram based: Uses bigram/trigram probabilities for context
+2. Neural based: Uses trained neural reranker for better accuracy
 """
 
 import time
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Union
 from shannlp.tokenize import word_tokenize
 from shannlp.spell.core import spell_correct, SpellCorrector
 from shannlp.spell.ngram import NgramModel
+
+# Optional neural model import
+try:
+    from shannlp.spell.neural import SpellReranker
+    NEURAL_AVAILABLE = True
+except ImportError:
+    NEURAL_AVAILABLE = False
+    SpellReranker = None
 
 
 class ContextAwareCorrector:
@@ -33,7 +45,10 @@ class ContextAwareCorrector:
         ngram_model: Optional[NgramModel] = None,
         spell_corrector: Optional[SpellCorrector] = None,
         context_window: int = 2,
-        context_weight: float = 0.3
+        context_weight: float = 0.3,
+        always_suggest_alternatives: bool = False,
+        neural_model: Optional['SpellReranker'] = None,
+        use_neural: bool = False
     ):
         """
         Initialize context-aware corrector.
@@ -44,11 +59,23 @@ class ContextAwareCorrector:
             context_window: Number of words to consider for context (1-2 recommended for speed)
             context_weight: Weight for context probability (0-1)
                            Final score = (1-w)*edit_score + w*context_score
+            always_suggest_alternatives: If True, generate alternatives even for
+                dictionary words (for neural reranking). Default False for speed.
+            neural_model: Pre-trained neural reranker model (optional)
+            use_neural: If True, use neural reranking (requires neural_model)
         """
         self.ngram_model = ngram_model
         self.spell_corrector = spell_corrector or SpellCorrector()
         self.context_window = min(context_window, 2)  # Limit for real-time performance
         self.context_weight = context_weight
+        self.neural_model = neural_model
+        self.use_neural = use_neural and neural_model is not None
+
+        # Enable alternatives for dictionary words if using neural model
+        if self.use_neural:
+            self.always_suggest_alternatives = True
+        else:
+            self.always_suggest_alternatives = always_suggest_alternatives
 
         # Performance tracking
         self.correction_times: List[float] = []
@@ -66,6 +93,30 @@ class ContextAwareCorrector:
         """
         self.ngram_model = NgramModel.load(model_path)
         print(f"N-gram model loaded ({self.ngram_model.n}-gram)")
+
+    def load_neural_model(self, model_path: str, device: str = None):
+        """
+        Load pre-trained neural reranker model.
+
+        Args:
+            model_path: Path to saved neural model (.pt file)
+            device: Device to use (cuda, mps, cpu). Auto-detected if None.
+
+        Examples:
+            >>> corrector = ContextAwareCorrector()
+            >>> corrector.load_neural_model("spell_reranker.pt")
+        """
+        if not NEURAL_AVAILABLE:
+            raise ImportError(
+                "Neural model support requires PyTorch. "
+                "Install with: pip install torch"
+            )
+
+        from shannlp.spell.neural import SpellReranker
+        self.neural_model = SpellReranker.load(model_path, device)
+        self.use_neural = True
+        self.always_suggest_alternatives = True  # Required for neural reranking
+        print(f"Neural reranker loaded from {model_path}")
 
     def correct_text(
         self,
@@ -100,8 +151,10 @@ class ContextAwareCorrector:
         # Correct each token with context
         corrected_tokens = []
         for idx, token in enumerate(tokens):
-            # Skip if already correct
-            if self.spell_corrector.is_correct(token):
+            # Skip if already correct AND we don't want alternatives
+            # (if always_suggest_alternatives is True, we still want to
+            # consider alternatives for dictionary words based on context)
+            if self.spell_corrector.is_correct(token) and not self.always_suggest_alternatives:
                 corrected_tokens.append(token)
                 continue
 
@@ -154,18 +207,29 @@ class ContextAwareCorrector:
             max_suggestions=max_suggestions * 3,  # Get more for re-ranking
             use_frequency=True,
             use_phonetic=True,
-            min_confidence=0.1  # Lower threshold, will re-rank
+            min_confidence=0.1,  # Lower threshold, will re-rank
+            always_suggest_alternatives=self.always_suggest_alternatives
         )
 
         if not candidates:
             return word
+
+        # Use neural reranking if available
+        if self.use_neural and self.neural_model is not None:
+            return self._rerank_with_neural(
+                word,
+                candidates,
+                context_before,
+                context_after,
+                min_confidence
+            )
 
         # If no n-gram model, use top candidate from spell corrector
         if self.ngram_model is None or not self.ngram_model.is_trained:
             top_candidate, confidence = candidates[0]
             return top_candidate if confidence >= min_confidence else word
 
-        # Re-rank using context
+        # Re-rank using n-gram context
         reranked = self._rerank_with_context(
             candidates,
             context_before,
@@ -178,6 +242,44 @@ class ContextAwareCorrector:
                 return best_candidate
 
         return word
+
+    def _rerank_with_neural(
+        self,
+        word: str,
+        candidates: List[Tuple[str, float]],
+        context_before: List[str],
+        context_after: List[str],
+        min_confidence: float
+    ) -> str:
+        """
+        Re-rank candidates using neural model.
+
+        Args:
+            word: Original word
+            candidates: List of (candidate, edit_score) tuples
+            context_before: Words before target
+            context_after: Words after target
+            min_confidence: Minimum confidence threshold
+
+        Returns:
+            Best candidate word
+        """
+        # Extract candidate words
+        candidate_words = [c[0] for c in candidates]
+
+        # Build context strings
+        context_left = " ".join(context_before)
+        context_right = " ".join(context_after)
+
+        # Get neural prediction
+        best_candidate, scores = self.neural_model.predict(
+            word,
+            candidate_words,
+            context_left,
+            context_right
+        )
+
+        return best_candidate
 
     def _rerank_with_context(
         self,
