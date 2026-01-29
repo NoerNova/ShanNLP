@@ -22,3 +22,5 @@ data/
 
 spell_reranker_history.json
 spell_reranker_vocab.json
+
+spell_reranker.pt
