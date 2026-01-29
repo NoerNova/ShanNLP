@@ -8,5 +8,17 @@ venv/
 test.py
 labs.ipynb
 example*
+*.ipynb
 
 data/
+
+*.log
+*.tmp
+*.bak
+
+.env
+
+*.jsonl
+
+spell_reranker_history.json
+spell_reranker_vocab.json
