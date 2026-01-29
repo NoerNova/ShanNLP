@@ -422,7 +422,7 @@ def main():
     print("=" * 60)
 
     best_val_acc = 0
-    history = []
+    logging_history = []
 
     for epoch in range(1, args.epochs + 1):
         start_time = time.time()
@@ -461,7 +461,7 @@ def main():
             model.save(args.output)
             print(f"  [Saved best model: {val_acc:.1f}%]")
 
-        history.append({
+        logging_history.append({
             'epoch': epoch,
             'train_loss': train_metrics['loss'],
             'train_acc': train_metrics['accuracy'],
@@ -472,17 +472,17 @@ def main():
             'lr': current_lr
         })
 
-    # Save training history
-    history_path = args.output.replace('.pt', '_history.json')
-    with open(history_path, 'w') as f:
-        json.dump(history, f, indent=2)
+    # Save training logging_history
+    logging_history_path = args.output.replace('.pt', '_logging_history.json')
+    with open(logging_history_path, 'w') as f:
+        json.dump(logging_history, f, indent=2)
 
     print("\n" + "=" * 60)
     print("Training Complete!")
     print("=" * 60)
     print(f"\nBest validation accuracy: {best_val_acc:.1f}%")
     print(f"Model saved to: {args.output}")
-    print(f"History saved to: {history_path}")
+    print(f"logging_history saved to: {logging_history_path}")
 
     print("\n" + "=" * 60)
     print("Usage")
