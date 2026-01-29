@@ -186,6 +186,9 @@ def main():
                 output = filename.replace('.jsonl', '_processed.jsonl')
                 preprocess_file(filename, output, args.max_candidates, args.num_workers)
                 print()
+            else:
+                print(f"{filename} file not found")
+                print("Run: generate_synthetic_errors.py first")
     else:
         output = args.output
         if output is None:
