@@ -7,3 +7,20 @@ venv/
 
 test.py
 labs.ipynb
+
+data/
+
+*.log
+*.tmp
+*.bak
+
+.env
+
+*.jsonl
+
+spell_reranker_history.json
+spell_reranker_vocab.json
+
+spell_reranker.pt
+
+*.egg-info/

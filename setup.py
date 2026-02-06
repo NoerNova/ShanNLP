@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages
 
 requirements = [
-    "pythainlp"
+    "pythainlp",
+    "msgpack>=1.0.0"  # Safe serialization for n-gram models
 ]
 
 setup(
