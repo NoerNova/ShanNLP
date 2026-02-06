@@ -7,8 +7,6 @@ venv/
 
 test.py
 labs.ipynb
-example*
-*.ipynb
 
 data/
 
@@ -24,3 +22,5 @@ spell_reranker_history.json
 spell_reranker_vocab.json
 
 spell_reranker.pt
+
+*.egg-info/
