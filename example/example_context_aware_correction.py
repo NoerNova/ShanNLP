@@ -62,7 +62,7 @@ def example_basic_usage():
 
     # Load pre-trained model
     print("Loading n-gram model...")
-    corrector.load_model(model_path)
+    corrector.load_ngram_model(model_path)
     print()
 
     # Correct a sentence
@@ -114,7 +114,7 @@ def example_compare_with_without_context():
     # Context-aware correction (Phase 2)
     print("Phase 2 - Context-aware correction:")
     corrector = ContextAwareCorrector()
-    corrector.load_model(model_path)
+    corrector.load_ngram_model(model_path)
 
     result = corrector.correct_text(test_text)
     print(f"  Result: {' '.join(result)}")
@@ -144,7 +144,7 @@ def example_batch_processing():
         return
 
     corrector = ContextAwareCorrector()
-    corrector.load_model(model_path)
+    corrector.load_ngram_model(model_path)
 
     # Example texts
     test_texts = [
@@ -186,7 +186,7 @@ def example_realtime_typing():
         return
 
     corrector = ContextAwareCorrector(context_window=1)  # Smaller window for speed
-    corrector.load_model(model_path)
+    corrector.load_ngram_model(model_path)
 
     print("Simulating typing with real-time correction...")
     print("(Target: <100ms per word for smooth typing experience)")
