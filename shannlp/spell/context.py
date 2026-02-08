@@ -10,19 +10,26 @@ Supports two reranking modes:
 2. Neural based: Uses trained neural reranker for better accuracy
 """
 
+from __future__ import annotations
+
+import math
+import os
 import time
-from typing import List, Tuple, Optional, Dict, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    from shannlp.spell.neural.model import SpellReranker
+
 from shannlp.tokenize import word_tokenize
 from shannlp.spell.core import spell_correct, SpellCorrector
 from shannlp.spell.ngram import NgramModel
 
-# Optional neural model import
+# Check whether PyTorch / neural module is available at runtime
 try:
-    from shannlp.spell.neural import SpellReranker
+    import shannlp.spell.neural  # noqa: F401
     NEURAL_AVAILABLE = True
 except ImportError:
     NEURAL_AVAILABLE = False
-    SpellReranker = None
 
 
 class ContextAwareCorrector:
@@ -47,7 +54,7 @@ class ContextAwareCorrector:
         context_window: int = 2,
         context_weight: float = 0.3,
         always_suggest_alternatives: bool = False,
-        neural_model: Optional['SpellReranker'] = None,
+        neural_model: Optional[SpellReranker] = None,
         use_neural: bool = False
     ):
         """
@@ -80,21 +87,40 @@ class ContextAwareCorrector:
         # Performance tracking
         self.correction_times: List[float] = []
 
-    def load_model(self, model_path: str):
+    def load_model(self, model_path: str, url: Optional[str] = None):
         """
         Load pre-trained n-gram model.
 
+        If *model_path* does not exist locally, the cache directory
+        (``~/.cache/shannlp/``) is checked automatically.  Pass *url* to
+        download the file on first use.
+
         Args:
-            model_path: Path to saved model file
+            model_path: Path to saved model file, or bare filename
+                (e.g. ``"shan_bigram.msgpack"``).
+            url: Download URL (Google Drive share links are supported).
+                Only needed when the file is not yet cached.
 
         Examples:
             >>> corrector = ContextAwareCorrector()
-            >>> corrector.load_model("bigram_model.pkl")
+            >>> corrector.load_model("shan_bigram.msgpack")
+
+            # Download on first use:
+            >>> corrector.load_model(
+            ...     "shan_bigram.msgpack",
+            ...     url="https://drive.google.com/file/d/<id>/view",
+            ... )
         """
-        self.ngram_model = NgramModel.load(model_path)
+        from shannlp.tools.download import download_file, resolve_model_path
+
+        if url and not os.path.exists(model_path):
+            download_file(os.path.basename(model_path), url)
+
+        resolved = resolve_model_path(model_path)
+        self.ngram_model = NgramModel.load(resolved)
         print(f"N-gram model loaded ({self.ngram_model.n}-gram)")
 
-    def load_neural_model(self, model_path: str, device: str = None):
+    def load_neural_model(self, model_path: str, device: Optional[str] = None):
         """
         Load pre-trained neural reranker model.
 
@@ -249,7 +275,7 @@ class ContextAwareCorrector:
         candidates: List[Tuple[str, float]],
         context_before: List[str],
         context_after: List[str],
-        min_confidence: float
+        min_confidence: float,
     ) -> str:
         """
         Re-rank candidates using neural model.
@@ -264,19 +290,19 @@ class ContextAwareCorrector:
         Returns:
             Best candidate word
         """
-        # Extract candidate words
-        candidate_words = [c[0] for c in candidates]
+        assert self.neural_model is not None, (
+            "_rerank_with_neural called but neural_model is None"
+        )
 
-        # Build context strings
+        candidate_words = [c[0] for c in candidates]
         context_left = " ".join(context_before)
         context_right = " ".join(context_after)
 
-        # Get neural prediction
-        best_candidate, scores = self.neural_model.predict(
+        best_candidate, _ = self.neural_model.predict(
             word,
             candidate_words,
             context_left,
-            context_right
+            context_right,
         )
 
         return best_candidate
@@ -441,6 +467,3 @@ class ContextAwareCorrector:
 
         return stats
 
-
-# Import math for log operations
-import math

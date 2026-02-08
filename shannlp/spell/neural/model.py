@@ -346,7 +346,7 @@ class SpellReranker(nn.Module):
         candidates: List[str],
         context_left: str = "",
         context_right: str = "",
-        device: str = None
+        device: Optional[str] = None,
     ) -> Tuple[str, List[Tuple[str, float]]]:
         """
         Predict best correction for a single error.
@@ -451,9 +451,56 @@ class SpellReranker(nn.Module):
         print(f"Model saved to {path}")
 
     @classmethod
-    def load(cls, path: str, device: str = None) -> 'SpellReranker':
-        """Load model and vocabulary."""
-        # Auto-detect device if not specified
+    def load(
+        cls,
+        path: str,
+        device: Optional[str] = None,
+        model_url: Optional[str] = None,
+        vocab_url: Optional[str] = None,
+    ) -> "SpellReranker":
+        """Load model and vocabulary.
+
+        Args:
+            path: Path to a ``.pt`` file **or** a model name (e.g.
+                ``"spell_reranker"``).  If the file does not exist locally,
+                the cache directory (``~/.cache/shannlp/``) is checked.
+                Pass *model_url* and *vocab_url* to download automatically.
+            device: Compute device (``"cuda"``, ``"mps"``, ``"cpu"``).
+                Auto-detected when ``None``.
+            model_url: URL to the ``.pt`` file.  Required only when the model
+                has not been downloaded yet.
+            vocab_url: URL to the ``_vocab.json`` file.  Required only when
+                the vocab has not been downloaded yet.
+
+        Returns:
+            Loaded :class:`SpellReranker` instance.
+
+        Example::
+
+            # Load from explicit path
+            model = SpellReranker.load("spell_reranker.pt")
+
+            # Load by name (must be in cache already)
+            model = SpellReranker.load("spell_reranker")
+
+            # Download on first use, then load
+            model = SpellReranker.load(
+                "spell_reranker",
+                model_url="https://example.com/spell_reranker.pt",
+                vocab_url="https://example.com/spell_reranker_vocab.json",
+            )
+        """
+        from shannlp.tools.download import download_model, resolve_model_path
+
+        # Download if URLs provided and file is missing
+        if model_url and vocab_url and not os.path.exists(path):
+            basename = os.path.basename(path)
+            model_name = basename[:-3] if basename.endswith(".pt") else basename
+            download_model(model_name, model_url=model_url, vocab_url=vocab_url)
+
+        resolved = resolve_model_path(path)
+
+        # Auto-detect device
         if device is None:
             if torch.cuda.is_available():
                 device = "cuda"
@@ -462,18 +509,18 @@ class SpellReranker(nn.Module):
             else:
                 device = "cpu"
 
-        vocab_path = path.replace('.pt', '_vocab.json')
+        vocab_path = resolved.replace(".pt", "_vocab.json")
         vocab = CharVocab.load(vocab_path)
 
-        checkpoint = torch.load(path, map_location=device, weights_only=True)
+        checkpoint = torch.load(resolved, map_location=device, weights_only=True)
 
         model = cls(
             vocab=vocab,
-            max_candidates=checkpoint.get('max_candidates', 10)
+            max_candidates=checkpoint.get("max_candidates", 10),
         )
 
-        model.load_state_dict(checkpoint['model_state'])
+        model.load_state_dict(checkpoint["model_state"])
         model.to(device)
 
-        print(f"Model loaded from {path}")
+        print(f"Model loaded from {resolved}")
         return model

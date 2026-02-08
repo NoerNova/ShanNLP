@@ -698,15 +698,23 @@ class NgramModel:
         print(f"Model saved to {filepath} (MessagePack format)")
 
     @classmethod
-    def load(cls, filepath: str) -> 'NgramModel':
+    def load(cls, filepath: str, url: Optional[str] = None) -> 'NgramModel':
         """
         Load trained model from file.
 
         Supports both MessagePack (.msgpack) and legacy pickle (.pkl) formats.
         MessagePack is recommended for security (no code execution vulnerabilities).
 
+        If *filepath* does not exist locally, the cache directory
+        (``~/.cache/shannlp/``) is checked automatically.  Pass *url* to
+        download the file on first use.
+
         Args:
-            filepath: Path to model file
+            filepath: Path to model file, bare filename, or model name.
+                Examples: ``"shan_bigram.msgpack"``, ``"shan_bigram"``,
+                ``"/abs/path/to/model.msgpack"``.
+            url: Download URL (Google Drive share links are supported).
+                Only needed when the file is not yet cached.
 
         Returns:
             Loaded NgramModel instance
@@ -715,9 +723,21 @@ class NgramModel:
             >>> model = NgramModel.load("model.msgpack")
             >>> model.is_trained
             True
-        """
-        # Try MessagePack first (preferred format)
 
+            # Download on first use:
+            >>> model = NgramModel.load(
+            ...     "shan_bigram.msgpack",
+            ...     url="https://drive.google.com/file/d/<id>/view",
+            ... )
+        """
+        from shannlp.tools.download import download_file, resolve_model_path
+
+        if url and not Path(filepath).exists():
+            download_file(Path(filepath).name, url)
+
+        filepath = resolve_model_path(filepath)
+
+        # Try MessagePack first (preferred format)
         try:
             with open(filepath, 'rb') as f:
                 packed_data = msgpack.unpack(f, raw=False)

@@ -278,7 +278,7 @@ def reload_model(model_path: Optional[str] = None) -> None:
     print("Model reloaded successfully")
 
 
-def load_neural_model(model_path: str, device: str = None) -> None:
+def load_neural_model(model_path: str, device: Optional[str] = None) -> None:
     """
     Load a neural reranker model for improved spell correction.
 
