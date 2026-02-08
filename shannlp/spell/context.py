@@ -40,8 +40,7 @@ class ContextAwareCorrector:
     from surrounding words for improved accuracy.
 
     Examples:
-        >>> corrector = ContextAwareCorrector()
-        >>> corrector.load_model("bigram_model.pkl")
+        >>> corrector = ContextAwareCorrector.load("bigram_model.msgpack")
         >>> result = corrector.correct_text("မိူင်း ယူႇ")
         >>> len(result) == 2
         True
@@ -87,9 +86,63 @@ class ContextAwareCorrector:
         # Performance tracking
         self.correction_times: List[float] = []
 
-    def load_model(self, model_path: str, url: Optional[str] = None):
+    @classmethod
+    def load(
+        cls,
+        ngram_path: str,
+        ngram_url: Optional[str] = None,
+        neural_path: Optional[str] = None,
+        neural_url: Optional[str] = None,
+        **kwargs,
+    ) -> "ContextAwareCorrector":
+        """Create a :class:`ContextAwareCorrector` with models pre-loaded.
+
+        Mirrors the ``load()`` classmethod on :class:`NgramModel` and
+        :class:`SpellReranker` for a consistent API.
+
+        Args:
+            ngram_path: Path or name of the n-gram model
+                (e.g. ``"shan_bigram.msgpack"`` or ``"shan_bigram"``).
+            ngram_url: Download URL for the n-gram model.  Google Drive share
+                links are supported.  Only needed when not yet cached.
+            neural_path: Optional path or name of the neural reranker model.
+            neural_url: Download URL for the neural model (``model_url``).
+                A matching ``_vocab.json`` URL must be provided via
+                ``neural_vocab_url`` in *kwargs* when downloading.
+            **kwargs: Extra keyword arguments forwarded to ``__init__``
+                (e.g. ``context_window``, ``context_weight``).
+
+        Returns:
+            Configured :class:`ContextAwareCorrector` instance.
+
+        Examples:
+            >>> corrector = ContextAwareCorrector.load("shan_bigram.msgpack")
+
+            # Download on first use:
+            >>> corrector = ContextAwareCorrector.load(
+            ...     "shan_bigram.msgpack",
+            ...     ngram_url="https://drive.google.com/file/d/<id>/view",
+            ... )
+
+            # With neural reranker:
+            >>> corrector = ContextAwareCorrector.load(
+            ...     "shan_bigram",
+            ...     neural_path="spell_reranker",
+            ... )
         """
-        Load pre-trained n-gram model.
+        neural_vocab_url: Optional[str] = kwargs.pop("neural_vocab_url", None)
+        instance = cls(**kwargs)
+        instance.load_ngram_model(ngram_path, url=ngram_url)
+        if neural_path:
+            instance.load_neural_model(
+                neural_path,
+                model_url=neural_url,
+                vocab_url=neural_vocab_url,
+            )
+        return instance
+
+    def load_ngram_model(self, model_path: str, url: Optional[str] = None):
+        """Load the n-gram language model into this corrector.
 
         If *model_path* does not exist locally, the cache directory
         (``~/.cache/shannlp/``) is checked automatically.  Pass *url* to
@@ -97,16 +150,16 @@ class ContextAwareCorrector:
 
         Args:
             model_path: Path to saved model file, or bare filename
-                (e.g. ``"shan_bigram.msgpack"``).
+                (e.g. ``"shan_bigram.msgpack"`` or ``"shan_bigram"``).
             url: Download URL (Google Drive share links are supported).
                 Only needed when the file is not yet cached.
 
         Examples:
             >>> corrector = ContextAwareCorrector()
-            >>> corrector.load_model("shan_bigram.msgpack")
+            >>> corrector.load_ngram_model("shan_bigram.msgpack")
 
             # Download on first use:
-            >>> corrector.load_model(
+            >>> corrector.load_ngram_model(
             ...     "shan_bigram.msgpack",
             ...     url="https://drive.google.com/file/d/<id>/view",
             ... )
@@ -120,17 +173,35 @@ class ContextAwareCorrector:
         self.ngram_model = NgramModel.load(resolved)
         print(f"N-gram model loaded ({self.ngram_model.n}-gram)")
 
-    def load_neural_model(self, model_path: str, device: Optional[str] = None):
-        """
-        Load pre-trained neural reranker model.
+    def load_neural_model(
+        self,
+        model_path: str,
+        device: Optional[str] = None,
+        model_url: Optional[str] = None,
+        vocab_url: Optional[str] = None,
+    ):
+        """Load the neural reranker model into this corrector.
 
         Args:
-            model_path: Path to saved neural model (.pt file)
-            device: Device to use (cuda, mps, cpu). Auto-detected if None.
+            model_path: Path or name of the ``.pt`` file
+                (e.g. ``"spell_reranker"`` or ``"spell_reranker.pt"``).
+            device: Compute device (``"cuda"``, ``"mps"``, ``"cpu"``).
+                Auto-detected when ``None``.
+            model_url: Download URL for the ``.pt`` weights file.
+                Only needed when not yet cached.
+            vocab_url: Download URL for the ``_vocab.json`` file.
+                Only needed when not yet cached.
 
         Examples:
             >>> corrector = ContextAwareCorrector()
-            >>> corrector.load_neural_model("spell_reranker.pt")
+            >>> corrector.load_neural_model("spell_reranker")
+
+            # Download on first use:
+            >>> corrector.load_neural_model(
+            ...     "spell_reranker",
+            ...     model_url="https://drive.google.com/file/d/<id>/view",
+            ...     vocab_url="https://drive.google.com/file/d/<id>/view",
+            ... )
         """
         if not NEURAL_AVAILABLE:
             raise ImportError(
@@ -139,7 +210,9 @@ class ContextAwareCorrector:
             )
 
         from shannlp.spell.neural import SpellReranker
-        self.neural_model = SpellReranker.load(model_path, device)
+        self.neural_model = SpellReranker.load(
+            model_path, device, model_url=model_url, vocab_url=vocab_url
+        )
         self.use_neural = True
         self.always_suggest_alternatives = True  # Required for neural reranking
         print(f"Neural reranker loaded from {model_path}")

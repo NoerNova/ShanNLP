@@ -347,7 +347,7 @@ corrector = ContextAwareCorrector(
 )
 
 # Load custom model
-corrector.load_model("my_trigram_model.msgpack")
+corrector.load_ngram_model("my_trigram_model.msgpack")
 
 # Correct text
 result = corrector.correct_sentence("your text here")

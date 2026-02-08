@@ -109,7 +109,7 @@ def _get_context_corrector(
 
     # Load model if it exists
     if os.path.exists(model_path):
-        _context_corrector.load_model(model_path)
+        _context_corrector.load_ngram_model(model_path)
     else:
         # No model available - will use basic spell correction only
         import warnings
